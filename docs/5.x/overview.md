@@ -40,6 +40,34 @@ their dependencies, a private Docker registry for autonomous operation, a
 monitoring system and an SSH bastion for remotely managing the cluster either
 via simple SSH or via Kubernetes API.
 
+
+## Components
+
+Gravity consists of these major components:
+
+
+* [gravity](./cluster/#gravity-tool): the CLI tool used to manage the cluster.
+Gravity is only available inside the cluster so you have to either `tsh ssh` into the cluster or use web UI to execute `gravity` commands.
+* **`tele`**: the CLI tool which is used for packaging and publishing applications.
+* **`tsh`**: the SSH client for establishing secure SSH connections between the
+  Ops Center and the application instances running behind firewalls on private clouds.
+  `tsh` is a part of [Gravitational Teleport](http://gravitational.com/teleport/),
+  a free open source SSH server developed, maintained and supported by Gravitational.
+  It can be used independently from Gravity.
+* [Ops Center](./opscenter): the Web UI for managing published applications and remotely
+  accessing private cloud deployments.
+
+## Workflow
+
+The typical Gravity workflow is as follows:
+
+* Start by building and publishing your Application Bundle with `tele` command.  Once
+  a Gravity cluster is deployed, `tele` command will let you list the active
+  clusters.
+* Connect to any server inside of any cluster using the `tsh` command.
+* Manage the cluster from within by using `gravity` command and/or
+  Kubernetes tools like `kubectl`.
+
 ## Application Lifecycle
 
 A Gravity application is a snapshot of a Kubernetes cluster, stored
