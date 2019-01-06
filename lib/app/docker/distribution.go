@@ -133,6 +133,7 @@ func BasicConfiguration(addr, rootdir string) *configuration.Configuration {
 		Storage: configuration.Storage{
 			"cache":      configuration.Parameters{"blobdescriptor": "inmemory"},
 			"filesystem": configuration.Parameters{"rootdirectory": rootdir},
+			"delete":     configuration.Parameters{"enabled": true},
 		},
 	}
 	config.HTTP.Addr = addr

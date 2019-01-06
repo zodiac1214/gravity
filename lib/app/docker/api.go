@@ -53,6 +53,9 @@ type ImageService interface {
 	// Unwrap translates the specified image name to point to the original repository
 	// if it's prefixed with this registry address - functional inverse of Wrap
 	Unwrap(image string) string
+
+	// Delete removes the specified image
+	Delete(Named) error
 }
 
 // DockerPuller defines an interface to pull images

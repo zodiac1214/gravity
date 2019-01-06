@@ -211,6 +211,11 @@ func (r *imageService) Unwrap(image string) (unwrapped string) {
 	return strings.TrimPrefix(unwrapped, fmt.Sprintf("%v/", r.RegistryAddress))
 }
 
+func (r *imageService) Delete(named Named) error {
+	// FIXME
+	return nil
+}
+
 func (r *imageService) connect(ctx context.Context) (err error) {
 	if r.remoteStore == nil {
 		r.remoteStore, err = ConnectRegistry(ctx, r.RegistryConnectionRequest)
