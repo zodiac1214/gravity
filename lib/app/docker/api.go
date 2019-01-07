@@ -54,8 +54,9 @@ type ImageService interface {
 	// if it's prefixed with this registry address - functional inverse of Wrap
 	Unwrap(image string) string
 
-	// Delete removes the specified image
-	Delete(context.Context, NamedTagged) error
+	// DeleteImages removes images found in the specified local directory dir
+	// from the private registry
+	DeleteImages(ctx context.Context, dir string) error
 }
 
 // DockerPuller defines an interface to pull images

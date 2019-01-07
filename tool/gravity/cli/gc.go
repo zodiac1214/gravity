@@ -24,8 +24,10 @@ import (
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	libfsm "github.com/gravitational/gravity/lib/fsm"
+	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/ops"
+	libpack "github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/vacuum"
@@ -34,24 +36,12 @@ import (
 	"github.com/gravitational/gravity/lib/vacuum/prune/pack"
 	"github.com/gravitational/gravity/lib/vacuum/prune/registry"
 
+	"github.com/coreos/go-semver/semver"
 	"github.com/gravitational/trace"
 	"github.com/sirupsen/logrus"
 )
 
 func garbageCollect(env *localenv.LocalEnvironment, manual, confirmed bool) error {
-	if !confirmed {
-		env.Println("This operation will also remove docker images that " +
-			"you manually pushed to the docker registry. Are you sure?")
-		resp, err := confirm()
-		if err != nil {
-			return trace.Wrap(err)
-		}
-		if !resp {
-			env.Println("Action cancelled by user.")
-			return nil
-		}
-	}
-
 	collector, err := newCollector(env)
 	if err != nil {
 		return trace.Wrap(err)
@@ -155,7 +145,7 @@ func newCollector(env *localenv.LocalEnvironment) (*vacuum.Collector, error) {
 		return nil, trace.Wrap(err)
 	}
 
-	previousImages, err := collectPreviousImages(clusterApps, cluster.App.Package)
+	previousApps, err := collectPreviousApplicationVersions(clusterPackages, cluster.App.Package)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -193,6 +183,7 @@ func newCollector(env *localenv.LocalEnvironment) (*vacuum.Collector, error) {
 			Manifest: cluster.App.Manifest,
 		},
 		RemoteApps:    remoteApps,
+		PreviousApps:  previousApps,
 		Apps:          clusterApps,
 		Packages:      clusterPackages,
 		LocalPackages: env.Packages,
@@ -300,6 +291,12 @@ func removeUnusedImages(env *localenv.LocalEnvironment, dryRun, confirmed bool) 
 		return trace.Wrap(err)
 	}
 
+	previousApps, err := collectPreviousApplicationVersions(clusterEnv.ClusterPackages, cluster.App.Package)
+	log.WithField("apps", previousApps).Info("Previous apps.")
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
 	imageService, err := docker.NewImageService(docker.RegistryConnectionRequest{
 		RegistryAddress: constants.LocalRegistryAddr,
 		CertName:        constants.DockerRegistry,
@@ -315,6 +312,7 @@ func removeUnusedImages(env *localenv.LocalEnvironment, dryRun, confirmed bool) 
 		App:          &cluster.App.Package,
 		Apps:         clusterEnv.Apps,
 		Packages:     clusterEnv.Packages,
+		PreviousApps: previousApps,
 		ImageService: imageService,
 		Config: prune.Config{
 			DryRun:      dryRun,
@@ -420,6 +418,16 @@ func collectRemoteApplications(operator ops.Operator, clusterKey ops.SiteKey) (r
 		}
 	}
 	return remoteApps, nil
+}
+
+func collectPreviousApplicationVersions(packages libpack.PackageService, appPackage loc.Locator) (previous []loc.Locator, err error) {
+	previous, err = libpack.FindPackagesCustom(packages, appPackage, func(a, b *semver.Version) bool {
+		return b.Compare(*a) < 0
+	})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return previous, nil
 }
 
 func validateCanPrunePackages(cluster ops.Site) error {

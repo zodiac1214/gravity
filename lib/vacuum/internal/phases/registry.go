@@ -59,9 +59,14 @@ func NewRegistry(
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+	var previousApps []loc.Locator
+	if params.Phase.Data != nil && params.Phase.Data.GarbageCollect != nil {
+		previousApps = params.Phase.Data.GarbageCollect.PreviousApps
+	}
 	pruner, err := registry.New(registry.Config{
 		App:          &clusterApp,
 		Apps:         clusterApps,
+		PreviousApps: previousApps,
 		Packages:     clusterPackages,
 		ImageService: imageService,
 		Config: prune.Config{

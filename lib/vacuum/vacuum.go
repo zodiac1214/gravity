@@ -24,6 +24,7 @@ import (
 	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/constants"
 	libfsm "github.com/gravitational/gravity/lib/fsm"
+	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/ops"
 	libpack "github.com/gravitational/gravity/lib/pack"
@@ -209,6 +210,8 @@ type Config struct {
 	App *storage.Application
 	// RemoteApps lists optional applications from remote clusters
 	RemoteApps []storage.Application
+	// PreviousApps lists previous versions of the cluster application
+	PreviousApps []loc.Locator
 	// Apps is the cluster application service
 	Apps app.Applications
 	// Packages is the cluster package service

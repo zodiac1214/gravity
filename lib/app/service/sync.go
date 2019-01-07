@@ -44,6 +44,28 @@ type SyncRequest struct {
 
 // SyncApp syncs an application and all its dependencies with registry
 func SyncApp(ctx context.Context, req SyncRequest) error {
+	return withLocalRegistry(ctx, req, func(ctx context.Context, service docker.ImageService, dir string) error {
+		log.WithField("package", req.Package).Info("Sync.")
+		_, err := req.ImageService.Sync(ctx, dir)
+		return trace.Wrap(err)
+	})
+}
+
+// DeleteImages removes the docker images of the specified application and all dependents
+func DeleteImages(ctx context.Context, req SyncRequest) error {
+	err := withLocalRegistry(ctx, req, func(ctx context.Context, service docker.ImageService, dir string) error {
+		err := service.DeleteImages(ctx, dir)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		return nil
+	})
+	return trace.Wrap(err)
+}
+
+type registryFunc func(ctx context.Context, service docker.ImageService, dir string) error
+
+func withLocalRegistry(ctx context.Context, req SyncRequest, registryFunc registryFunc) error {
 	application, err := req.AppService.GetApp(req.Package)
 	if err != nil {
 		return trace.Wrap(err)
@@ -52,12 +74,12 @@ func SyncApp(ctx context.Context, req SyncRequest) error {
 	// sync base app
 	base := application.Manifest.Base()
 	if base != nil {
-		err = SyncApp(ctx, SyncRequest{
+		err = withLocalRegistry(ctx, SyncRequest{
 			PackService:  req.PackService,
 			AppService:   req.AppService,
 			ImageService: req.ImageService,
 			Package:      *base,
-		})
+		}, registryFunc)
 		if err != nil {
 			return trace.Wrap(err)
 		}
@@ -65,12 +87,12 @@ func SyncApp(ctx context.Context, req SyncRequest) error {
 
 	// sync dependencies
 	for _, dep := range application.Manifest.Dependencies.Apps {
-		err = SyncApp(ctx, SyncRequest{
+		err = withLocalRegistry(ctx, SyncRequest{
 			PackService:  req.PackService,
 			AppService:   req.AppService,
 			ImageService: req.ImageService,
 			Package:      dep.Locator,
-		})
+		}, registryFunc)
 		if err != nil {
 			return trace.Wrap(err)
 		}
@@ -84,7 +106,10 @@ func SyncApp(ctx context.Context, req SyncRequest) error {
 	defer func() {
 		err := os.RemoveAll(dir)
 		if err != nil {
-			log.Warningf("failed to remove %v: %v", dir, trace.DebugReport(err))
+			log.WithFields(log.Fields{
+				"dir":        dir,
+				log.ErrorKey: err,
+			}).Warn("Failed to remove.")
 		}
 	}()
 
@@ -98,10 +123,10 @@ func SyncApp(ctx context.Context, req SyncRequest) error {
 	}
 
 	syncPath := filepath.Join(unpackedPath, "registry")
-
+	log := log.WithField("dir", syncPath)
 	// check if the registry dir exists at all
 	if exists, _ := utils.IsDirectory(syncPath); !exists {
-		log.Warningf("registry dir does not exist, skipping sync: %v", syncPath)
+		log.Warn("Registry directory does not exist, skipping sync.")
 		return nil
 	}
 
@@ -111,94 +136,12 @@ func SyncApp(ctx context.Context, req SyncRequest) error {
 		return trace.Wrap(err)
 	}
 	if empty {
-		log.Warningf("registry directory is empty, skipping sync: %v", syncPath)
+		log.Warn("Registry directory is empty, skipping sync.")
 		return nil
 	}
 
-	log.Infof("Syncing %v.", req.Package)
-
-	if _, err = req.ImageService.Sync(ctx, syncPath); err != nil {
-		return trace.Wrap(err)
-	}
-
-	return nil
-}
-
-// CollectImages collects the docker images for the given application and its dependencies
-func CollectImages(ctx context.Context, req SyncRequest) (images []string, err error) {
-	if err = collectImages(ctx, req, &images); err != nil {
-		return nil, trace.Wrap(err)
-	}
-	return images, nil
-}
-
-func collectImages(ctx context.Context, req SyncRequest, images *[]string) error {
-	application, err := req.AppService.GetApp(req.Package)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	// collect direct application images
-	base := application.Manifest.Base()
-	if base != nil {
-		err = collectImages(ctx, SyncRequest{
-			PackService:  req.PackService,
-			AppService:   req.AppService,
-			ImageService: req.ImageService,
-			Package:      *base,
-		}, images)
-		if err != nil {
-			return trace.Wrap(err)
-		}
-	}
-
-	// collect images from dependencies
-	for _, dep := range application.Manifest.Dependencies.Apps {
-		err = collectImages(ctx, SyncRequest{
-			PackService:  req.PackService,
-			AppService:   req.AppService,
-			ImageService: req.ImageService,
-			Package:      dep.Locator,
-		}, images)
-		if err != nil {
-			return trace.Wrap(err)
-		}
-	}
-
-	unpackedPath, err := req.PackService.UnpackedPath(req.Package)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), defaults.TransientErrorTimeout)
-	defer cancel()
-	err = unpackRemotePackage(ctx, req.PackService, req.Package, unpackedPath)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	syncPath := filepath.Join(unpackedPath, "registry")
-	log := log.WithField("path", syncPath)
-	if exists, _ := utils.IsDirectory(syncPath); !exists {
-		log.Warn("Registry directory does not exist, skipping collect.")
-		return nil
-	}
-
-	empty, err := utils.IsDirectoryEmpty(syncPath)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	if empty {
-		log.Warn("Registry directory is empty, skipping collect.")
-		return nil
-	}
-
-	log.WithField("package", req.Package).Info("Collect.")
-	packageImages, err = docker.CollectImages(ctx, syncPath)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	*images = append(*images, packageImages...)
-	return nil
+	err = registryFunc(ctx, req.ImageService, syncPath)
+	return trace.Wrap(err)
 }
 
 func unpackRemotePackage(ctx context.Context, packages pack.PackageService, package_ loc.Locator, unpackPath string) error {

@@ -193,35 +193,43 @@ func (r *imageService) Sync(ctx context.Context, dir string) (installedTags []Ta
 	return installedTags, nil
 }
 
-func CollectImages(ctx context.Context, dir string) (images []string, err error) {
+func (r *imageService) DeleteImages(ctx context.Context, dir string) error {
+	if err := r.connect(ctx); err != nil {
+		return trace.Wrap(err)
+	}
 	log.WithField("dir", dir).Info("Collecting images.")
 	localStore, err := openLocal(dir)
 	if err != nil {
-		return nil, trace.Wrap(err, "failed to open local directory %q as local registry", dir)
+		return trace.Wrap(err, "failed to open local directory %q as local registry", dir)
 	}
 	repos, err := ListRepos(ctx, localStore)
+	log.WithField("repos", repos).Info("List repositories.")
 	if err != nil {
-		return nil, trace.Wrap(err, "failed to list local repositories in %q", dir)
+		return trace.Wrap(err, "failed to list local repositories in %q", dir)
 	}
 	for _, name := range repos {
-		repository, err := localStore.Repository(ctx, name)
+		repo, err := localStore.Repository(ctx, name)
 		if err != nil {
-			return nil, trace.Wrap(err)
+			return trace.Wrap(err)
 		}
-		tags := repository.Tags(ctx)
+		domain, path := SplitHostname(repo.Named().Name())
+		tags := repo.Tags(ctx)
 		tagList, err := tags.All(ctx)
+		log.WithField("tags", tagList).Info("List tags.")
 		if err != nil {
-			return nil, trace.Wrap(err)
+			return trace.Wrap(err)
 		}
 		for _, tag := range tagList {
-			desc, err := tags.Get(ctx, tag)
+			err = r.Delete(ctx, taggedReference{
+				namedRepository: repository{domain: domain, path: path},
+				tag:             tag,
+			})
 			if err != nil {
-				return nil, trace.Wrap(err)
+				return trace.Wrap(err)
 			}
-			images = append(images, desc.URLs...)
 		}
 	}
-	return images, nil
+	return nil
 }
 
 // Wrap translates the specified image to point to the private registry
@@ -245,7 +253,8 @@ func (r *imageService) Unwrap(image string) (unwrapped string) {
 // Delete deletes the image specified with ref from the remote registry.
 // This removes both metadata and binary layers.
 func (r *imageService) Delete(ctx context.Context, ref NamedTagged) error {
-	repository, err := r.remoteStore.Repository(ctx, Path(ref))
+	log.WithField("ref", ref).Info("Delete.")
+	repository, err := r.remoteStore.Repository(ctx, ref.Name())
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -255,16 +264,19 @@ func (r *imageService) Delete(ctx context.Context, ref NamedTagged) error {
 	}
 	tags := repository.Tags(ctx)
 	desc, err := tags.Get(ctx, ref.Tag())
-	if err != nil {
+	if err != nil && !isBlobOrManifestUnknownError(err) {
 		return trace.Wrap(err)
 	}
+	if isBlobOrManifestUnknownError(err) {
+		return nil
+	}
 	err = manifests.Delete(ctx, desc.Digest)
-	if err != nil {
+	if err != nil && !isBlobOrManifestUnknownError(err) {
 		return trace.Wrap(err)
 	}
 	blobs := repository.Blobs(ctx)
 	err = blobs.Delete(ctx, desc.Digest)
-	if err != nil {
+	if err != nil && !isBlobOrManifestUnknownError(err) {
 		return trace.Wrap(err)
 	}
 	return nil
@@ -480,9 +492,19 @@ func ListRepos(ctx context.Context, namespace registryclient.Registry) (repos []
 	return repos, err
 }
 
+func isBlobOrManifestUnknownError(err error) bool {
+	return IsManifestUnknown(err) || isBlobUnknown(err)
+}
+
 // IsManifestUnknown determines if the specified error is an `unknown manifest` error
 func IsManifestUnknown(err error) bool {
 	return ("MANIFEST_UNKNOWN" == registryErrorCode(err))
+}
+
+// isBlobUnknown determines if the specified error is an `unknown blob` error
+func isBlobUnknown(err error) bool {
+	msg := registryErrorCode(err)
+	return msg == "BLOB_UNKNOWN" || msg == "MANIFEST_BLOB_UNKNOWN"
 }
 
 // registryErrorCode takes an error returned by registry client and tries
@@ -490,8 +512,11 @@ func IsManifestUnknown(err error) bool {
 func registryErrorCode(err error) string {
 	if wrapper, ok := err.(errcode.Errors); ok {
 		if wrapper.Len() > 0 {
-			if innerError, ok := wrapper[0].(errcode.Error); ok {
+			switch innerError := wrapper[0].(type) {
+			case errcode.Error:
 				return innerError.ErrorCode().String()
+			case errcode.ErrorCode:
+				return innerError.String()
 			}
 		}
 	}

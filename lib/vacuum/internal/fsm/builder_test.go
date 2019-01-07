@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"github.com/gravitational/gravity/lib/compare"
+	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
@@ -43,8 +44,14 @@ func (S) TestSingleNodePlan(c *C) {
 	servers := []storage.Server{
 		{Hostname: "node-1", ClusterRole: string(schema.ServiceRoleMaster)},
 	}
+	remoteApps := []storage.Application{
+		{
+			Locator:  loc.MustParseLocator("remote/app:0.0.1"),
+			Manifest: schema.Manifest{},
+		},
+	}
 
-	plan, err := NewOperationPlan(operation, servers)
+	plan, err := NewOperationPlan(operation, servers, remoteApps)
 	c.Assert(err, IsNil)
 	c.Assert(plan, compare.DeepEquals, &storage.OperationPlan{
 		OperationID:   operation.ID,
@@ -73,6 +80,11 @@ func (S) TestSingleNodePlan(c *C) {
 					{
 						ID:          "/packages/cluster",
 						Description: `Prune unused cluster packages`,
+						Data: &storage.OperationPhaseData{
+							GarbageCollect: &storage.GarbageCollectOperationData{
+								RemoteApps: remoteApps,
+							},
+						},
 					},
 					{
 						ID:          "/packages/node-1",
@@ -112,8 +124,14 @@ func (S) TestMultiNodePlan(c *C) {
 		{Hostname: "node-2", ClusterRole: string(schema.ServiceRoleNode)},
 		{Hostname: "node-3", ClusterRole: string(schema.ServiceRoleMaster)},
 	}
+	remoteApps := []storage.Application{
+		{
+			Locator:  loc.MustParseLocator("remote/app:0.0.1"),
+			Manifest: schema.Manifest{},
+		},
+	}
 
-	plan, err := NewOperationPlan(operation, servers)
+	plan, err := NewOperationPlan(operation, servers, remoteApps)
 	c.Assert(err, IsNil)
 	c.Assert(plan, compare.DeepEquals, &storage.OperationPlan{
 		OperationID:   operation.ID,
@@ -150,6 +168,11 @@ func (S) TestMultiNodePlan(c *C) {
 					{
 						ID:          "/packages/cluster",
 						Description: `Prune unused cluster packages`,
+						Data: &storage.OperationPhaseData{
+							GarbageCollect: &storage.GarbageCollectOperationData{
+								RemoteApps: remoteApps,
+							},
+						},
 					},
 					{
 						ID:          "/packages/node-1",

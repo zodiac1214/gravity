@@ -139,6 +139,9 @@ type ElectionChange struct {
 type GarbageCollectOperationData struct {
 	// RemoteApps lists remote applications known to cluster
 	RemoteApps []Application `json:"remote_apps,omitempty" yaml:"remote_apps,omitempty"`
+	// PreviousApps lists previous versions of the cluster application
+	// to prune
+	PreviousApps []loc.Locator
 }
 
 // Application describes an application for the package cleaner

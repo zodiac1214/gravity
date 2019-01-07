@@ -26,7 +26,6 @@ import (
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/pack"
-	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/systemservice"
 	"github.com/gravitational/gravity/lib/utils"
 	"github.com/gravitational/gravity/lib/vacuum/prune"
@@ -75,6 +74,8 @@ type Config struct {
 	Packages pack.PackageService
 	// Apps specifies the cluster application service
 	Apps apps.Applications
+	// PreviousApps lists previous versions of the cluster application
+	PreviousApps []loc.Locator
 	// ImageService specifies the docker image service
 	ImageService docker.ImageService
 }
@@ -83,55 +84,39 @@ type Config struct {
 // The registry state is reset by deleting the state from the filesystem
 // and re-running the docker image export for the cluster application.
 func (r *cleanup) Prune(ctx context.Context) (err error) {
-	r.PrintStep("Stop registry service")
-	if !r.DryRun {
-		err = r.registryStop(ctx)
-		defer func() {
-			if err == nil {
-				return
-			}
-			if errStart := r.registryStart(ctx); errStart != nil {
-				r.Warn(errStart)
-			}
-		}()
-		if err != nil {
-			return trace.Wrap(err)
-		}
-	}
-
-	stateDir, err := state.GetStateDir()
+	err = r.deleteImages(ctx)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	dir := state.RegistryDir(stateDir)
-	r.PrintStep("Delete registry state directory %v", dir)
-	if !r.DryRun {
-		err = utils.RemoveContents(dir)
-		if err != nil {
-			return trace.Wrap(trace.ConvertSystemError(err),
-				"failed to remove old registry state from %v.", dir)
+	r.PrintStep("Stop registry service")
+	err = r.registryStop(ctx)
+	defer func() {
+		if err == nil {
+			return
 		}
+		if errStart := r.registryStart(ctx); errStart != nil {
+			r.Warn(errStart)
+		}
+	}()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	r.PrintStep("Garbage collect")
+	err = r.registryGarbageCollect(ctx)
+	if err != nil {
+		return trace.Wrap(err)
 	}
 
 	r.PrintStep("Start registry service")
-	if !r.DryRun {
-		err = r.registryStart(ctx)
-		if err != nil {
-			return trace.Wrap(err)
-		}
+	err = r.registryStart(ctx)
+	if err != nil {
+		return trace.Wrap(err)
 	}
 
 	r.PrintStep("Sync application state with registry")
-	if r.DryRun {
-		return nil
-	}
-	err = appservice.SyncApp(ctx, appservice.SyncRequest{
-		PackService:  r.Packages,
-		AppService:   r.Apps,
-		ImageService: r.ImageService,
-		Package:      *r.App,
-	})
+	err = r.sync(ctx)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -140,6 +125,9 @@ func (r *cleanup) Prune(ctx context.Context) (err error) {
 }
 
 func (r *cleanup) registryStart(ctx context.Context) error {
+	if r.DryRun {
+		return nil
+	}
 	out, err := r.serviceStart(ctx)
 	if err != nil {
 		return trace.Wrap(err, "failed to start the registry service: %s.", out)
@@ -153,6 +141,9 @@ func (r *cleanup) registryStart(ctx context.Context) error {
 }
 
 func (r *cleanup) registryStop(ctx context.Context) error {
+	if r.DryRun {
+		return nil
+	}
 	out, err := r.serviceStop(ctx)
 	if err != nil {
 		return trace.Wrap(err, "failed to stop the registry service: %s.", out)
@@ -164,6 +155,49 @@ func (r *cleanup) registryStop(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+func (r *cleanup) registryGarbageCollect(ctx context.Context) error {
+	if r.DryRun {
+		return nil
+	}
+	out, err := registryCtl(ctx, r.FieldLogger, "garbage-collect", "/etc/docker/registry/config.yml")
+	if err != nil {
+		return trace.Wrap(err, "failed to run garbage collection: %s", out)
+	}
+	return nil
+}
+
+func (r *cleanup) deleteImages(ctx context.Context) error {
+	for _, prev := range r.PreviousApps {
+		r.PrintStep("Prune docker images for %v", prev)
+		if r.DryRun {
+			continue
+		}
+		err := appservice.DeleteImages(ctx, appservice.SyncRequest{
+			PackService:  r.Packages,
+			AppService:   r.Apps,
+			ImageService: r.ImageService,
+			Package:      prev,
+		})
+		if err != nil {
+			return trace.Wrap(err)
+		}
+	}
+	return nil
+}
+
+func (r *cleanup) sync(ctx context.Context) error {
+	if r.DryRun {
+		return nil
+	}
+	err := appservice.SyncApp(ctx, appservice.SyncRequest{
+		PackService:  r.Packages,
+		AppService:   r.Apps,
+		ImageService: r.ImageService,
+		Package:      *r.App,
+	})
+	return trace.Wrap(err)
 }
 
 func (r *cleanup) waitForService(ctx context.Context, status string) error {
@@ -200,6 +234,12 @@ type cleanup struct {
 
 func serviceCtl(ctx context.Context, log log.FieldLogger, args ...string) (output []byte, err error) {
 	args = append([]string{"/bin/systemctl"}, append(args, "registry.service")...)
+	output, err = utils.RunCommand(ctx, log, utils.PlanetCommandArgs(args...)...)
+	return output, trace.Wrap(err)
+}
+
+func registryCtl(ctx context.Context, log log.FieldLogger, args ...string) (output []byte, err error) {
+	args = append([]string{"/usr/bin/registry"}, args...)
 	output, err = utils.RunCommand(ctx, log, utils.PlanetCommandArgs(args...)...)
 	return output, trace.Wrap(err)
 }
