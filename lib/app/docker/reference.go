@@ -184,7 +184,7 @@ func Domain(named Named) string {
 	if r, ok := named.(namedRepository); ok {
 		return r.Domain()
 	}
-	domain, _ := splitDomain(named.Name())
+	domain, _ := SplitHostname(named.Name())
 	return domain
 }
 
@@ -193,7 +193,7 @@ func Path(named Named) (name string) {
 	if r, ok := named.(namedRepository); ok {
 		return r.Path()
 	}
-	_, path := splitDomain(named.Name())
+	_, path := SplitHostname(named.Name())
 	return path
 }
 
@@ -250,7 +250,7 @@ func (c canonicalReference) Familiar() Named {
 	}
 }
 
-func splitDomain(name string) (string, string) {
+func SplitHostname(name string) (string, string) {
 	match := anchoredNameRegexp.FindStringSubmatch(name)
 	if len(match) != 3 {
 		return "", name

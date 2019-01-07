@@ -124,6 +124,83 @@ func SyncApp(ctx context.Context, req SyncRequest) error {
 	return nil
 }
 
+// CollectImages collects the docker images for the given application and its dependencies
+func CollectImages(ctx context.Context, req SyncRequest) (images []string, err error) {
+	if err = collectImages(ctx, req, &images); err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return images, nil
+}
+
+func collectImages(ctx context.Context, req SyncRequest, images *[]string) error {
+	application, err := req.AppService.GetApp(req.Package)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	// collect direct application images
+	base := application.Manifest.Base()
+	if base != nil {
+		err = collectImages(ctx, SyncRequest{
+			PackService:  req.PackService,
+			AppService:   req.AppService,
+			ImageService: req.ImageService,
+			Package:      *base,
+		}, images)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+	}
+
+	// collect images from dependencies
+	for _, dep := range application.Manifest.Dependencies.Apps {
+		err = collectImages(ctx, SyncRequest{
+			PackService:  req.PackService,
+			AppService:   req.AppService,
+			ImageService: req.ImageService,
+			Package:      dep.Locator,
+		}, images)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+	}
+
+	unpackedPath, err := req.PackService.UnpackedPath(req.Package)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), defaults.TransientErrorTimeout)
+	defer cancel()
+	err = unpackRemotePackage(ctx, req.PackService, req.Package, unpackedPath)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	syncPath := filepath.Join(unpackedPath, "registry")
+	log := log.WithField("path", syncPath)
+	if exists, _ := utils.IsDirectory(syncPath); !exists {
+		log.Warn("Registry directory does not exist, skipping collect.")
+		return nil
+	}
+
+	empty, err := utils.IsDirectoryEmpty(syncPath)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	if empty {
+		log.Warn("Registry directory is empty, skipping collect.")
+		return nil
+	}
+
+	log.WithField("package", req.Package).Info("Collect.")
+	packageImages, err = docker.CollectImages(ctx, syncPath)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	*images = append(*images, packageImages...)
+	return nil
+}
+
 func unpackRemotePackage(ctx context.Context, packages pack.PackageService, package_ loc.Locator, unpackPath string) error {
 	b := backoff.NewConstantBackOff(defaults.RetryInterval)
 	err := utils.RetryTransient(ctx, b, func() error {

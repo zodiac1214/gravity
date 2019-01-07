@@ -427,20 +427,26 @@ func FindLatestPackage(packages PackageService, filter loc.Locator) (*loc.Locato
 
 // FindNewerPackages returns packages with versions greater than in the provided package
 func FindNewerPackages(packages PackageService, filter loc.Locator) ([]loc.Locator, error) {
+	return FindPackagesCustom(packages, filter, Less)
+}
+
+// FindPackagesCustom searches for packages with the given filter and specified
+// comparator
+func FindPackagesCustom(packages PackageService, filter loc.Locator, less LessFunc) ([]loc.Locator, error) {
 	var result []loc.Locator
 	err := ForeachPackageInRepo(packages, filter.Repository, func(e PackageEnvelope) error {
 		if e.Locator.Name != filter.Name {
 			return nil
 		}
-		vera, err := filter.SemVer()
+		a, err := filter.SemVer()
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		verb, err := e.Locator.SemVer()
+		b, err := e.Locator.SemVer()
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		if verb.Compare(*vera) > 0 {
+		if less(a, b) {
 			result = append(result, e.Locator)
 		}
 		return nil
@@ -618,4 +624,13 @@ func FindLegacyRuntimeConfigPackage(packages PackageService) (configPackage *loc
 		return nil, trace.NotFound("no runtime configuration package found")
 	}
 	return configPackage, nil
+}
+
+// LessFunc defines a version comparator
+type LessFunc func(a, b *semver.Version) bool
+
+// Less is the standard version comparator that
+// compares the major/minor/patch sub-components
+func Less(a, b *semver.Version) bool {
+	return a.Compare(*b) < 0
 }

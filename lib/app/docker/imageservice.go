@@ -193,6 +193,37 @@ func (r *imageService) Sync(ctx context.Context, dir string) (installedTags []Ta
 	return installedTags, nil
 }
 
+func CollectImages(ctx context.Context, dir string) (images []string, err error) {
+	log.WithField("dir", dir).Info("Collecting images.")
+	localStore, err := openLocal(dir)
+	if err != nil {
+		return nil, trace.Wrap(err, "failed to open local directory %q as local registry", dir)
+	}
+	repos, err := ListRepos(ctx, localStore)
+	if err != nil {
+		return nil, trace.Wrap(err, "failed to list local repositories in %q", dir)
+	}
+	for _, name := range repos {
+		repository, err := localStore.Repository(ctx, name)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		tags := repository.Tags(ctx)
+		tagList, err := tags.All(ctx)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		for _, tag := range tagList {
+			desc, err := tags.Get(ctx, tag)
+			if err != nil {
+				return nil, trace.Wrap(err)
+			}
+			images = append(images, desc.URLs...)
+		}
+	}
+	return images, nil
+}
+
 // Wrap translates the specified image to point to the private registry
 // this image service is managing if the image is not already pointing to it.
 func (r *imageService) Wrap(image string) string {
@@ -211,8 +242,31 @@ func (r *imageService) Unwrap(image string) (unwrapped string) {
 	return strings.TrimPrefix(unwrapped, fmt.Sprintf("%v/", r.RegistryAddress))
 }
 
-func (r *imageService) Delete(named Named) error {
-	// FIXME
+// Delete deletes the image specified with ref from the remote registry.
+// This removes both metadata and binary layers.
+func (r *imageService) Delete(ctx context.Context, ref NamedTagged) error {
+	repository, err := r.remoteStore.Repository(ctx, Path(ref))
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	manifests, err := repository.Manifests(ctx)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	tags := repository.Tags(ctx)
+	desc, err := tags.Get(ctx, ref.Tag())
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	err = manifests.Delete(ctx, desc.Digest)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	blobs := repository.Blobs(ctx)
+	err = blobs.Delete(ctx, desc.Digest)
+	if err != nil {
+		return trace.Wrap(err)
+	}
 	return nil
 }
 

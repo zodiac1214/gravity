@@ -55,7 +55,7 @@ type ImageService interface {
 	Unwrap(image string) string
 
 	// Delete removes the specified image
-	Delete(Named) error
+	Delete(context.Context, NamedTagged) error
 }
 
 // DockerPuller defines an interface to pull images

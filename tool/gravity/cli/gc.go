@@ -155,6 +155,11 @@ func newCollector(env *localenv.LocalEnvironment) (*vacuum.Collector, error) {
 		return nil, trace.Wrap(err)
 	}
 
+	previousImages, err := collectPreviousImages(clusterApps, cluster.App.Package)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
 	runtimePath, err := getRuntimePackagePath(env.Packages)
 	if err != nil {
 		return nil, trace.Wrap(err)
