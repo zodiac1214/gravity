@@ -17,7 +17,9 @@ limitations under the License.
 package registry
 
 import (
+	"bytes"
 	"context"
+	"os/exec"
 	"strings"
 
 	apps "github.com/gravitational/gravity/lib/app"
@@ -232,14 +234,17 @@ type cleanup struct {
 	Config
 }
 
-func serviceCtl(ctx context.Context, log log.FieldLogger, args ...string) (output []byte, err error) {
+func serviceCtl(ctx context.Context, logger log.FieldLogger, args ...string) (output []byte, err error) {
 	args = append([]string{"/bin/systemctl"}, append(args, "registry.service")...)
-	output, err = utils.RunCommand(ctx, log, utils.PlanetCommandArgs(args...)...)
+	output, err = utils.RunCommand(ctx, logger, utils.PlanetCommandArgs(args...)...)
 	return output, trace.Wrap(err)
 }
 
-func registryCtl(ctx context.Context, log log.FieldLogger, args ...string) (output []byte, err error) {
-	args = append([]string{"/usr/bin/registry"}, args...)
-	output, err = utils.RunCommand(ctx, log, utils.PlanetCommandArgs(args...)...)
-	return output, trace.Wrap(err)
+func registryCtl(ctx context.Context, logger log.FieldLogger, args ...string) (out []byte, err error) {
+	args = utils.PlanetCommandArgs(append([]string{"/usr/bin/registry"}, args...)...)
+	name, args := args[0], args[1:]
+	cmd := exec.CommandContext(ctx, name, args...)
+	var buf bytes.Buffer
+	err = utils.Exec(cmd, &buf)
+	return buf.Bytes(), trace.Wrap(err)
 }
