@@ -51,7 +51,7 @@ func (S) TestSingleNodePlan(c *C) {
 		},
 	}
 
-	plan, err := NewOperationPlan(operation, servers, remoteApps)
+	plan, err := NewOperationPlan(operation, servers, remoteApps, nil)
 	c.Assert(err, IsNil)
 	c.Assert(plan, compare.DeepEquals, &storage.OperationPlan{
 		OperationID:   operation.ID,
@@ -60,19 +60,6 @@ func (S) TestSingleNodePlan(c *C) {
 		ClusterName:   operation.SiteDomain,
 		Servers:       servers,
 		Phases: []storage.OperationPhase{
-			{
-				ID:          "/registry",
-				Description: "Prune unused docker images",
-				Phases: []storage.OperationPhase{
-					{
-						ID:          "/registry/node-1",
-						Description: `Prune unused docker images on node "node-1"`,
-						Data: &storage.OperationPhaseData{
-							Server: &servers[0],
-						},
-					},
-				},
-			},
 			{
 				ID:          "/packages",
 				Description: "Prune unused packages",
@@ -130,8 +117,9 @@ func (S) TestMultiNodePlan(c *C) {
 			Manifest: schema.Manifest{},
 		},
 	}
+	previousApps := []loc.Locator{loc.MustParseLocator("gravitational.io/app:0.0.1")}
 
-	plan, err := NewOperationPlan(operation, servers, remoteApps)
+	plan, err := NewOperationPlan(operation, servers, remoteApps, previousApps)
 	c.Assert(err, IsNil)
 	c.Assert(plan, compare.DeepEquals, &storage.OperationPlan{
 		OperationID:   operation.ID,
@@ -149,6 +137,9 @@ func (S) TestMultiNodePlan(c *C) {
 						Description: `Prune unused docker images on node "node-1"`,
 						Data: &storage.OperationPhaseData{
 							Server: &servers[0],
+							GarbageCollect: &storage.GarbageCollectOperationData{
+								PreviousApps: previousApps,
+							},
 						},
 					},
 					{
@@ -156,6 +147,9 @@ func (S) TestMultiNodePlan(c *C) {
 						Description: `Prune unused docker images on node "node-3"`,
 						Data: &storage.OperationPhaseData{
 							Server: &servers[2],
+							GarbageCollect: &storage.GarbageCollectOperationData{
+								PreviousApps: previousApps,
+							},
 						},
 						Requires: []string{"/registry/node-1"},
 					},

@@ -30,7 +30,7 @@ func (r *Collector) getOrCreateOperationPlan() (plan *storage.OperationPlan, err
 	}
 
 	if trace.IsNotFound(err) {
-		plan, err = fsm.NewOperationPlan(*r.Operation, r.Servers, r.RemoteApps)
+		plan, err = fsm.NewOperationPlan(*r.Operation, r.Servers, r.RemoteApps, r.PreviousApps)
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}

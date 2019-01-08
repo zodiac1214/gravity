@@ -406,6 +406,19 @@ func waitForEndpoints(ctx context.Context, client corev1.CoreV1Interface, server
 }
 
 func hasEndpoints(client corev1.CoreV1Interface, labels labels.Set, fn endpointMatchFn) error {
+	services, err := client.Services(metav1.NamespaceSystem).List(
+		metav1.ListOptions{
+			LabelSelector: labels.String(),
+		},
+	)
+	if err != nil {
+		log.WithError(err).Warn("Failed to query services.")
+		return trace.Wrap(rigging.ConvertError(err), "failed to query services")
+	}
+	if len(services.Items) == 0 {
+		// Ignore endpoints for non-existing service
+		return nil
+	}
 	list, err := client.Endpoints(metav1.NamespaceSystem).List(
 		metav1.ListOptions{
 			LabelSelector: labels.String(),

@@ -21,6 +21,7 @@ import (
 	"path"
 
 	libfsm "github.com/gravitational/gravity/lib/fsm"
+	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/storage"
 	libphase "github.com/gravitational/gravity/lib/vacuum/internal/phases"
@@ -30,18 +31,28 @@ import (
 
 // NewOperationPlan returns a new plan for the specified operation
 // and the given set of servers
-func NewOperationPlan(operation ops.SiteOperation, servers []storage.Server, remoteApps []storage.Application) (*storage.OperationPlan, error) {
+func NewOperationPlan(
+	operation ops.SiteOperation,
+	servers []storage.Server,
+	remoteApps []storage.Application,
+	previousApps []loc.Locator,
+) (*storage.OperationPlan, error) {
 	masters, _ := libfsm.SplitServers(servers)
 	if len(masters) == 0 {
 		return nil, trace.NotFound("no master servers found in cluster state")
 	}
 
-	builder := phaseBuilder{remoteApps: remoteApps}
-
-	registry := *builder.registry(masters)
+	builder := phaseBuilder{
+		remoteApps: remoteApps,
+	}
+	var phases phases
+	if len(previousApps) != 0 {
+		registry := *builder.registry(masters, previousApps)
+		phases = append(phases, registry)
+	}
 	packages := *builder.packages(servers)
 	journals := *builder.journals(servers)
-	phases := phases{registry, packages, journals}
+	phases = append(phases, packages, journals)
 
 	plan := &storage.OperationPlan{
 		OperationID:   operation.ID,
@@ -55,7 +66,7 @@ func NewOperationPlan(operation ops.SiteOperation, servers []storage.Server, rem
 	return plan, nil
 }
 
-func (r phaseBuilder) registry(masters []storage.Server) *phase {
+func (r phaseBuilder) registry(masters []storage.Server, previousApps []loc.Locator) *phase {
 	root := root(phase{
 		ID:          libphase.Registry,
 		Description: "Prune unused docker images",
@@ -65,6 +76,9 @@ func (r phaseBuilder) registry(masters []storage.Server) *phase {
 		node := r.node(master, root, "Prune unused docker images on node %q")
 		node.Data = &storage.OperationPhaseData{
 			Server: &masters[i],
+			GarbageCollect: &storage.GarbageCollectOperationData{
+				PreviousApps: previousApps,
+			},
 		}
 		root.AddSequential(node)
 	}

@@ -120,7 +120,6 @@ func (r *cleanup) Prune(ctx context.Context) (err error) {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-
 	return nil
 }
 
@@ -165,6 +164,7 @@ func (r *cleanup) registryGarbageCollect(ctx context.Context) error {
 	if err != nil {
 		return trace.Wrap(err, "failed to run garbage collection: %s", out)
 	}
+	log.WithField("output", string(out)).Info("Collected garbage.")
 	return nil
 }
 
