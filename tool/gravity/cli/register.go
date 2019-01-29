@@ -488,7 +488,8 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.RPCAgentCmd.CmdClause = g.Command("agent", "RPC agent")
 
 	g.RPCAgentDeployCmd.CmdClause = g.RPCAgentCmd.Command("deploy", "deploy RPC agents across cluster nodes, and run specified execution function").Hidden()
-	g.RPCAgentDeployCmd.Args = g.RPCAgentDeployCmd.Arg("arg", "additional arguments").Strings()
+	g.RPCAgentDeployCmd.LeaderArgs = g.RPCAgentDeployCmd.Flag("leader", "additional arguments to leader node agent").String()
+	g.RPCAgentDeployCmd.NodeArgs = g.RPCAgentDeployCmd.Flag("node", "additional arguments to regular node agent").String()
 
 	g.RPCAgentShutdownCmd.CmdClause = g.RPCAgentCmd.Command("shutdown", "request agents to shut down").Hidden()
 

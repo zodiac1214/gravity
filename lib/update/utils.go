@@ -75,13 +75,8 @@ func GetOperationPlan(b storage.Backend) (*storage.OperationPlan, error) {
 // WaitForEndpoints waits for cluster/DNS endpoints to become active for the given server
 func WaitForEndpoints(ctx context.Context, client corev1.CoreV1Interface, nodeID string) error {
 	clusterLabels := labels.Set{"app": defaults.GravityClusterLabel}
-	kubednsLegacyLabels := labels.Set{"k8s-app": "kube-dns"}
-	kubednsLabels := labels.Set{"k8s-app": defaults.KubeDNSLabel}
-	matchesNode := matchesNode(nodeID)
 	err := retry(ctx, func() error {
-		if (hasEndpoints(client, clusterLabels, existingEndpoint) == nil) &&
-			(hasEndpoints(client, kubednsLabels, matchesNode) == nil ||
-				hasEndpoints(client, kubednsLegacyLabels, matchesNode) == nil) {
+		if hasEndpoints(client, clusterLabels, existingEndpoint) == nil {
 			return nil
 		}
 		return trace.NotFound("endpoints not ready")

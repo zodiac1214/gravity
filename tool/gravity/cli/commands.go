@@ -1143,8 +1143,10 @@ type RPCAgentCmd struct {
 // RPCAgentDeployCmd deploys RPC agents on cluster nodes
 type RPCAgentDeployCmd struct {
 	*kingpin.CmdClause
-	// Args is additional arguments to the agent
-	Args *[]string
+	// LeaderArgs is additional arguments to the leader agent
+	LeaderArgs *string
+	// NodeArgs is additional arguments to the regular agent
+	NodeArgs *string
 }
 
 // RPCAgentShutdownCmd requests RPC agents to shut down

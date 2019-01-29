@@ -117,11 +117,11 @@ func updateTrigger(
 		clusterName:  cluster.Domain,
 		clusterEnv:   clusterEnv,
 		proxy:        proxy,
-		nodeParams:   []string{constants.RPCAgentSyncPlanFunction},
+		nodeParams:   constants.RPCAgentSyncPlanFunction,
 	}
 
 	if !manual {
-		req.leaderParams = []string{constants.RPCAgentUpgradeFunction}
+		req.leaderParams = constants.RPCAgentUpgradeFunction
 		// Force this node to be the operation leader
 		req.leader, err = findLocalServer(*cluster)
 		if err != nil {

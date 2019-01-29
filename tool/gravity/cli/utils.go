@@ -153,7 +153,8 @@ func (g *Application) isUpdateCommand(cmd string) bool {
 	case g.RPCAgentRunCmd.FullCommand():
 		return len(*g.RPCAgentRunCmd.Args) > 0
 	case g.RPCAgentDeployCmd.FullCommand():
-		return len(*g.RPCAgentDeployCmd.Args) > 0
+		return len(*g.RPCAgentDeployCmd.LeaderArgs) > 0 ||
+			len(*g.RPCAgentDeployCmd.NodeArgs) > 0
 	}
 	return false
 }

@@ -129,7 +129,7 @@ var agentFunctions map[string]agentFunc = map[string]agentFunc{
 	constants.RPCAgentSyncPlanFunction: executeSyncOperationPlan,
 }
 
-func rpcAgentDeploy(localEnv, updateEnv *localenv.LocalEnvironment, leaderParams []string) error {
+func rpcAgentDeploy(localEnv, updateEnv *localenv.LocalEnvironment, leaderParams, nodeParams string) error {
 	clusterEnv, err := localEnv.NewClusterEnvironment()
 	if err != nil {
 		return trace.Wrap(err)
@@ -161,6 +161,7 @@ func rpcAgentDeploy(localEnv, updateEnv *localenv.LocalEnvironment, leaderParams
 		clusterEnv:   clusterEnv,
 		proxy:        proxy,
 		leaderParams: leaderParams,
+		nodeParams:   nodeParams,
 	}
 
 	// Force this node to be the operation leader
@@ -362,7 +363,7 @@ type deployAgentsRequest struct {
 	clusterState storage.ClusterState
 	clusterName  string
 	proxy        *teleclient.ProxyClient
-	leaderParams []string
+	leaderParams string
 	leader       *storage.Server
-	nodeParams   []string
+	nodeParams   string
 }
