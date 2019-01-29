@@ -175,7 +175,7 @@ func rpcAgentDeploy(localEnv, updateEnv *localenv.LocalEnvironment, leaderParams
 
 	ctx, cancel := context.WithTimeout(context.Background(), defaults.AgentDeployTimeout)
 	defer cancel()
-	err = deployUpdateAgents(ctx, localEnv, updateEnv, req)
+	_, err = deployAgents(ctx, req)
 	return trace.Wrap(err)
 }
 
@@ -248,27 +248,6 @@ func deployAgents(ctx context.Context, req deployAgentsRequest) (credentials.Tra
 	}
 
 	return clientCreds, nil
-}
-
-func deployUpdateAgents(ctx context.Context, localEnv, updateEnv *localenv.LocalEnvironment, req deployAgentsRequest) error {
-	deployReq, err := newDeployAgentsRequest(ctx, req)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	// Operation plan initialization requires access to TLS RPC credentials
-	// generated above
-	_, err = update.InitOperationPlan(ctx, localEnv, updateEnv, req.clusterEnv)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	err = rpc.DeployAgents(ctx, *deployReq)
-	if err != nil {
-		return trace.Wrap(err, "failed to deploy agents")
-	}
-
-	return nil
 }
 
 // newDeployAgentsRequest creates a new request to deploy agents on the local cluster
@@ -345,8 +324,16 @@ func rpcAgentShutdown(env *localenv.LocalEnvironment) error {
 	return trace.Wrap(err)
 }
 
+func executeAutomaticUpgrade(ctx context.Context, localEnv, upgradeEnv *localenv.LocalEnvironment, args []string) error {
+	return trace.Wrap(update.AutomaticUpgrade(ctx, localEnv, upgradeEnv))
+}
+
 func executeSyncOperationPlan(ctx context.Context, localEnv, updateEnv *localenv.LocalEnvironment, args []string) error {
-	return syncOperationPlan(localEnv, updateEnv)
+	clusterEnv, err := localEnv.NewClusterEnvironment()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return trace.Wrap(update.SyncOperationPlan(clusterEnv.Backend, updateEnv.Backend))
 }
 
 func getGravityPackage() loc.Locator {

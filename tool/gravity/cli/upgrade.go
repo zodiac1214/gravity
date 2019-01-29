@@ -23,24 +23,13 @@ import (
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/localenv"
+	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/update"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/trace"
 )
-
-func executeAutomaticUpgrade(ctx context.Context, localEnv, upgradeEnv *localenv.LocalEnvironment, args []string) error {
-	return trace.Wrap(update.AutomaticUpgrade(ctx, localEnv, upgradeEnv))
-}
-
-// upgradePhaseParams combines parameters for an upgrade phase execution/rollback
-type upgradePhaseParams struct {
-	// PhaseParams specifies generic phase execution configuration
-	PhaseParams
-	// skipVersionCheck allows to override gravity version compatibility check
-	skipVersionCheck bool
-}
 
 func executeUpgradePhase(localEnv, upgradeEnv *localenv.LocalEnvironment, p PhaseParams) error {
 	clusterEnv, err := localEnv.NewClusterEnvironment()
@@ -120,7 +109,7 @@ func rollbackUpgradePhase(localEnv, updateEnv *localenv.LocalEnvironment, p Phas
 	return trace.Wrap(err)
 }
 
-func completeUpdatePlan(localEnv, updateEnv *localenv.LocalEnvironment) error {
+func completeUpdatePlan(localEnv, updateEnv *localenv.LocalEnvironment, operation ops.SiteOperation) error {
 	clusterEnv, err := localEnv.NewClusterEnvironment()
 	if err != nil {
 		return trace.Wrap(err)

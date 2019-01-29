@@ -140,8 +140,6 @@ func (g *Application) isJoinCommand(cmd string) bool {
 func (g *Application) isUpdateCommand(cmd string) bool {
 	switch cmd {
 	case g.PlanCmd.FullCommand(),
-		g.PlanInitCmd.FullCommand(),
-		g.PlanSyncCmd.FullCommand(),
 		g.PlanDisplayCmd.FullCommand(),
 		g.PlanExecuteCmd.FullCommand(),
 		g.PlanRollbackCmd.FullCommand(),
@@ -165,8 +163,6 @@ func (g *Application) isExpandCommand(cmd string) bool {
 	switch cmd {
 	case g.JoinCmd.FullCommand(), g.AutoJoinCmd.FullCommand(),
 		g.PlanCmd.FullCommand(),
-		g.PlanInitCmd.FullCommand(),
-		g.PlanSyncCmd.FullCommand(),
 		g.PlanDisplayCmd.FullCommand(),
 		g.PlanExecuteCmd.FullCommand(),
 		g.PlanRollbackCmd.FullCommand(),

@@ -17,7 +17,6 @@ limitations under the License.
 package cli
 
 import (
-	"context"
 	"fmt"
 	"os"
 
@@ -25,58 +24,12 @@ import (
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/ops"
-	"github.com/gravitational/gravity/lib/rpc"
 	"github.com/gravitational/gravity/lib/storage"
-	"github.com/gravitational/gravity/lib/update"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/fatih/color"
 	"github.com/gravitational/trace"
 )
-
-func initOperationPlan(localEnv, updateEnv *localenv.LocalEnvironment) error {
-	ctx := context.TODO()
-	clusterEnv, err := localEnv.NewClusterEnvironment()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	if clusterEnv.Client == nil {
-		return trace.BadParameter("this operation can only be executed on one of the master nodes")
-	}
-
-	secretsDir, err := fsm.AgentSecretsDir()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	creds, err := rpc.ClientCredentials(secretsDir)
-	if err != nil {
-		return trace.Wrap(err, "failed to load client RPC credentials from %v."+
-			" Please make sure the upgrade operation has been started with `gravity upgrade`"+
-			" or `gravity upgrade --manual` and retry.", secretsDir)
-	}
-
-	plan, err := update.InitOperationPlan(ctx, localEnv, updateEnv, clusterEnv)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	err = update.SyncOperationPlanToCluster(ctx, *plan, creds)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	return trace.Wrap(err)
-}
-
-func syncOperationPlan(localEnv *localenv.LocalEnvironment, updateEnv *localenv.LocalEnvironment) error {
-	clusterEnv, err := localEnv.NewClusterEnvironment()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	return trace.Wrap(update.SyncOperationPlan(clusterEnv.Backend, updateEnv.Backend))
-}
 
 func displayOperationPlan(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment, operationID string, format constants.Format) error {
 	op, err := getLastOperation(localEnv, updateEnv, joinEnv, operationID)

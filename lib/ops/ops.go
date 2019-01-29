@@ -955,7 +955,8 @@ func (s *SiteOperation) String() string {
 	case OperationUpdateEnvars:
 		typeS = "update cluster envars"
 	}
-	return fmt.Sprintf("operation(%v, cluster=%v, state=%s)", typeS, s.SiteDomain, s.State)
+	return fmt.Sprintf("operation(%v(%v), cluster=%v, state=%s, created=%v)",
+		typeS, s.ID, s.SiteDomain, s.State, s.Created.Format(constants.HumanDateFormat))
 }
 
 // SiteOperationKey identifies key to retrieve an opertaion

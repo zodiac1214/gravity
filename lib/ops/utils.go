@@ -291,6 +291,14 @@ type OperationStateSetter interface {
 	SetOperationState(SiteOperationKey, SetOperationStateRequest) error
 }
 
+// SetOperationState implements the OperationStateSetter by invoking this handler
+func (r OperationStateFunc) SetOperationState(key SiteOperationKey, req SetOperationStateRequest) error {
+	return r(key, req)
+}
+
+// OperationStateFunc is a function handler for setting the operation state
+type OperationStateFunc func(SiteOperationKey, SetOperationStateRequest) error
+
 // VerifyLicense verifies the provided license
 func VerifyLicense(packages pack.PackageService, license string) error {
 	parsed, err := licenseapi.ParseLicense(license)

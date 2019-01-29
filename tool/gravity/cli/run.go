@@ -95,8 +95,6 @@ func InitAndCheck(g *Application, cmd string) error {
 		g.RPCAgentInstallCmd.FullCommand(),
 		g.RPCAgentRunCmd.FullCommand(),
 		g.PlanCmd.FullCommand(),
-		g.PlanInitCmd.FullCommand(),
-		g.PlanSyncCmd.FullCommand(),
 		g.PlanDisplayCmd.FullCommand(),
 		g.PlanExecuteCmd.FullCommand(),
 		g.PlanRollbackCmd.FullCommand(),
@@ -175,8 +173,6 @@ func InitAndCheck(g *Application, cmd string) error {
 		g.EnterCmd.FullCommand(),
 		g.PlanetEnterCmd.FullCommand(),
 		g.PlanCmd.FullCommand(),
-		g.PlanInitCmd.FullCommand(),
-		g.PlanSyncCmd.FullCommand(),
 		g.PlanDisplayCmd.FullCommand(),
 		g.PlanExecuteCmd.FullCommand(),
 		g.PlanRollbackCmd.FullCommand(),
@@ -345,10 +341,6 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 			updateEnv,
 			*g.UpgradeCmd.App,
 			*g.UpgradeCmd.Manual)
-	case g.PlanInitCmd.FullCommand():
-		return initOperationPlan(localEnv, updateEnv)
-	case g.PlanSyncCmd.FullCommand():
-		return syncOperationPlan(localEnv, updateEnv)
 	case g.PlanExecuteCmd.FullCommand():
 		return executePhase(localEnv, updateEnv, joinEnv,
 			*g.PlanCmd.OperationID,

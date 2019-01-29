@@ -336,10 +336,6 @@ func removeUnusedPackages(env *localenv.LocalEnvironment, dryRun, pruneClusterPa
 		return trace.Wrap(err)
 	}
 
-	if err = validateCanPrunePackages(*cluster); err != nil {
-		return trace.Wrap(err)
-	}
-
 	remoteApps, err := collectRemoteApplications(operator, cluster.Key())
 	if err != nil {
 		return trace.Wrap(err)
@@ -414,20 +410,6 @@ func collectRemoteApplications(operator ops.Operator, clusterKey ops.SiteKey) (r
 		}
 	}
 	return remoteApps, nil
-}
-
-func validateCanPrunePackages(cluster ops.Site) error {
-	// Use the cluster state to determine the operation progress to account
-	// for older clusters where update operation was not explicitly completed.
-	// TODO(dmitri): remove when there's no more need to support this legacy case
-	switch cluster.State {
-	case ops.SiteStateActive, ops.SiteStateDegraded:
-	default:
-		return trace.CompareFailed("Package pruning can only run on an active or degraded cluster. " +
-			"Please complete any pending operations and try again.")
-	}
-
-	return nil
 }
 
 func removeUnusedJournalFiles(env *localenv.LocalEnvironment, machineIDFile, logDir string) (err error) {

@@ -136,9 +136,6 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.PlanCmd.OperationID = g.PlanCmd.Flag("operation-id", "ID of the active operation. It not specified, the last operation will be used").Hidden().String()
 	g.PlanCmd.SkipVersionCheck = g.PlanCmd.Flag("skip-version-check", "Bypass version compatibility check").Hidden().Bool()
 
-	g.PlanInitCmd.CmdClause = g.PlanCmd.Command("init", "Initialize operation plan")
-	g.PlanSyncCmd.CmdClause = g.PlanCmd.Command("sync", "Sync the operation plan from etcd to local store")
-
 	g.PlanDisplayCmd.CmdClause = g.PlanCmd.Command("display", "Display a plan for an ongoing operation").Default()
 	g.PlanDisplayCmd.Output = common.Format(g.PlanDisplayCmd.Flag("output", "Output format for the plan, text, json or yaml").Short('o').Default(string(constants.EncodingText)))
 

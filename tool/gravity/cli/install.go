@@ -703,13 +703,7 @@ func completeInstallPlan(localEnv *localenv.LocalEnvironment) error {
 	return nil
 }
 
-func completeJoinPlan(localEnv, joinEnv *localenv.LocalEnvironment) error {
-	// determine the ongoing expand operation, it should be the only
-	// operation present in the local join-specific backend
-	operation, err := ops.GetExpandOperation(joinEnv.Backend)
-	if err != nil {
-		return trace.Wrap(err)
-	}
+func completeJoinPlan(localEnv, joinEnv *localenv.LocalEnvironment, operation ops.SiteOperation) error {
 	operator, err := joinEnv.CurrentOperator(httplib.WithInsecure())
 	if err != nil {
 		return trace.Wrap(err)
@@ -723,11 +717,7 @@ func completeJoinPlan(localEnv, joinEnv *localenv.LocalEnvironment) error {
 		return trace.Wrap(err)
 	}
 	joinFSM, err := expand.NewFSM(expand.FSMConfig{
-		OperationKey: ops.SiteOperationKey{
-			AccountID:   operation.AccountID,
-			SiteDomain:  operation.SiteDomain,
-			OperationID: operation.ID,
-		},
+		OperationKey:  operation.Key(),
 		Operator:      operator,
 		Apps:          apps,
 		Packages:      packages,

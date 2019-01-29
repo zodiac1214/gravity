@@ -114,17 +114,18 @@ func (f *fsmUpdateEngine) Complete(fsmErr error) error {
 		return trace.Wrap(err)
 	}
 
-	opKey := clusterOperationKey(*plan)
+	opKey := fsm.OperationKey(*plan)
 	op, err := f.Operator.GetSiteOperation(opKey)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
+	stateSetter := fsm.SetOperationState(opKey, f.Operator, f.LocalBackend)
 	completed := fsm.IsCompleted(plan)
 	if completed {
-		err = ops.CompleteOperation(opKey, f.Operator)
+		err = ops.CompleteOperation(opKey, stateSetter)
 	} else {
-		err = ops.FailOperation(opKey, f.Operator, trace.Unwrap(fsmErr).Error())
+		err = ops.FailOperation(opKey, stateSetter, trace.Unwrap(fsmErr).Error())
 	}
 	if err != nil {
 		return trace.Wrap(err)
@@ -292,19 +293,4 @@ Please use the gravity binary from the upgrade installer tarball to execute the 
 	}
 
 	return nil
-}
-
-func clusterOperationKey(plan storage.OperationPlan) ops.SiteOperationKey {
-	return ops.SiteOperationKey{
-		SiteDomain:  plan.ClusterName,
-		AccountID:   plan.AccountID,
-		OperationID: plan.OperationID,
-	}
-}
-
-func clusterKey(plan storage.OperationPlan) ops.SiteKey {
-	return ops.SiteKey{
-		SiteDomain: plan.ClusterName,
-		AccountID:  plan.AccountID,
-	}
 }

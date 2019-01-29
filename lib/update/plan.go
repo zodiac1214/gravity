@@ -46,7 +46,8 @@ import (
 func InitOperationPlan(
 	ctx context.Context,
 	localEnv, updateEnv *localenv.LocalEnvironment,
-	clusterEnv *localenv.ClusterEnvironment) (*storage.OperationPlan, error) {
+	clusterEnv *localenv.ClusterEnvironment,
+) (*storage.OperationPlan, error) {
 	operation, err := storage.GetLastOperation(clusterEnv.Backend)
 	if err != nil {
 		return nil, trace.Wrap(err)

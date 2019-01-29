@@ -17,7 +17,7 @@ limitations under the License.
 package cli
 
 import (
-	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -25,6 +25,7 @@ import (
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/storage"
 
+	"github.com/fatih/color"
 	"github.com/gravitational/trace"
 	"github.com/sirupsen/logrus"
 )
@@ -54,7 +55,7 @@ func executePhase(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment, opera
 	case ops.OperationUpdate:
 		return executeUpgradePhase(localEnv, updateEnv, params)
 	case ops.OperationUpdateEnvars:
-		return executeEnvarsPhase(localEnv, updateEnv, params)
+		return executeEnvarsPhase(localEnv, updateEnv, params, *op)
 	case ops.OperationGarbageCollect:
 		return executeGarbageCollectPhase(localEnv, params)
 	default:
@@ -75,7 +76,7 @@ func rollbackPhase(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment, oper
 	case ops.OperationUpdate:
 		return rollbackUpgradePhase(localEnv, updateEnv, params)
 	case ops.OperationUpdateEnvars:
-		return rollbackEnvarsPhase(localEnv, updateEnv, params)
+		return rollbackEnvarsPhase(localEnv, updateEnv, params, *op)
 	default:
 		return trace.BadParameter("operation type %q does not support plan rollback", op.Type)
 	}
@@ -88,47 +89,68 @@ func completeOperationPlan(localEnv, updateEnv, joinEnv *localenv.LocalEnvironme
 	}
 	switch op.Type {
 	case ops.OperationInstall:
+		// There's only one install operation
 		return completeInstallPlan(localEnv)
 	case ops.OperationExpand:
-		return completeJoinPlan(localEnv, joinEnv)
+		return completeJoinPlan(localEnv, joinEnv, *op)
 	case ops.OperationUpdate:
-		return completeUpdatePlan(localEnv, updateEnv)
+		return completeUpdatePlan(localEnv, updateEnv, *op)
 	case ops.OperationUpdateEnvars:
-		return completeEnvarsPlan(localEnv, updateEnv)
+		return completeEnvarsPlan(localEnv, updateEnv, *op)
 	default:
 		return trace.BadParameter("operation type %q does not support plan completion", op.Type)
 	}
 }
 
 func getLastOperation(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment, operationID string) (*ops.SiteOperation, error) {
-	operations := getBackendOperations(localEnv, updateEnv, joinEnv, operationID)
+	operations, err := getBackendOperations(localEnv, updateEnv, joinEnv, operationID)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	log.WithField("operations", oplist(operations).String()).Info("Fetched backend operations.")
 	if len(operations) == 0 {
 		if operationID != "" {
 			return nil, trace.NotFound("no operation with ID %v found", operationID)
 		}
 		return nil, trace.NotFound("no operation found")
+	}
+	if len(operations) == 1 && operationID != "" {
+		log.WithField("operation", operations[0]).Info("Fetched an operation by ID.")
+		return &operations[0], nil
 	}
 	op, err := getActiveOperationFromList(operations)
 	if err != nil {
 		log.WithError(err).Warn("Failed to find active operation, will fall back to last completed.")
 	}
 	if op == nil {
-		if len(operations) != 1 {
-			return nil, trace.BadParameter("multiple operations found: \n%v\n, please specify operation with --operation-id",
-				formatOperations(operations))
-		}
+		log.WithField("operation", op).Info("Fetched multiple operations, will display the most recent.")
 		op = &operations[0]
+		if len(operations) != 1 {
+			localEnv.Println(color.YellowString("Multiple operations found: \n%v\n, please specify operation with --operation-id.\n"+
+				"Displaying the most recent operation.",
+				oplist(operations)))
+		}
+	} else {
+		log.WithField("operation", op).Info("Fetched active operation.")
 	}
 	return op, nil
 }
 
 func getActiveOperation(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment, operationID string) (*ops.SiteOperation, error) {
-	operations := getBackendOperations(localEnv, updateEnv, joinEnv, operationID)
+	operations, err := getBackendOperations(localEnv, updateEnv, joinEnv, operationID)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	log.WithField("operations", oplist(operations).String()).Info("Fetched backend operations.")
 	if len(operations) == 0 {
 		if operationID != "" {
 			return nil, trace.NotFound("no operation with ID %v found", operationID)
 		}
 		return nil, trace.NotFound("no operation found")
+	}
+	if len(operations) == 1 && operationID != "" {
+		log.WithField("operation", operations[0]).Info("Fetched an operation by ID.")
+		return &operations[0], nil
 	}
 	op, err := getActiveOperationFromList(operations)
 	if err != nil {
@@ -138,63 +160,104 @@ func getActiveOperation(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment,
 }
 
 // getBackendOperations returns the list of operation from the specified backends
-func getBackendOperations(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment, operationID string) (result []ops.SiteOperation) {
-	// operationID -> operation
-	operations := make(map[string]ops.SiteOperation)
-	var clusterOperation *ops.SiteOperation
-	isOngoingInstallOperation := func() bool {
-		return clusterOperation == nil ||
-			(clusterOperation.Type == ops.OperationInstall && !clusterOperation.IsCompleted())
+// in descending order (sorted by creation time)
+func getBackendOperations(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment, operationID string) (result []ops.SiteOperation, err error) {
+	b := newBackendOperations()
+	err = b.List(localEnv, updateEnv, joinEnv)
+	if err != nil {
+		return nil, trace.Wrap(err)
 	}
-	getBackendOperation := func(backend storage.Backend, ctx string) *ops.SiteOperation {
-		op, err := storage.GetLastOperation(backend)
-		if err == nil {
-			if _, exists := operations[op.ID]; !exists {
-				operations[op.ID] = (ops.SiteOperation)(*op)
-			}
-		} else {
-			log.WithFields(logrus.Fields{
-				"context":       ctx,
-				logrus.ErrorKey: err,
-			}).Debug("Failed to query operation.")
+	for _, op := range b.operations {
+		if operationID == "" || operationID == op.ID {
+			result = append(result, op)
 		}
-		return (*ops.SiteOperation)(op)
 	}
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].Created.After(result[j].Created)
+	})
+	return result, nil
+}
+
+func newBackendOperations() backendOperations {
+	return backendOperations{
+		operations: make(map[string]ops.SiteOperation),
+	}
+}
+
+func (r *backendOperations) List(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment) error {
 	clusterEnv, err := localEnv.NewClusterEnvironmentWithTimeout(1 * time.Second)
 	if err != nil {
 		log.WithError(err).Debug("Failed to create cluster environment.")
 	}
 	if clusterEnv != nil {
-		clusterOperation = getBackendOperation(clusterEnv.Backend, "cluster")
+		err = r.init(clusterEnv.Backend)
+		if err != nil {
+			log.WithError(err).Warn("Failed to query cluster operations.")
+		}
 	}
 	if updateEnv != nil {
-		getBackendOperation(updateEnv.Backend, "update")
+		r.getOperationAndUpdateCache(updateEnv.Backend, log.WithField("context", "update"))
 	}
 	if joinEnv != nil {
-		getBackendOperation(joinEnv.Backend, "expand")
+		r.getOperationAndUpdateCache(joinEnv.Backend, log.WithField("context", "expand"))
 	}
 	// Only fetch operation from remote (install) environment if the install operation is ongoing
 	// or we failed to fetch the operation details from the cluster
-	if isOngoingInstallOperation() {
+	if r.isActiveInstallOperation() {
 		wizardEnv, err := localenv.NewRemoteEnvironment()
 		if err != nil {
-			log.WithError(err).Debug("Failed to create wizard environment.")
+			log.WithError(err).Warn("Failed to create wizard environment.")
 		}
 		if wizardEnv != nil && wizardEnv.Operator != nil {
 			op, err := ops.GetWizardOperation(wizardEnv.Operator)
 			if err == nil {
-				operations[op.ID] = (ops.SiteOperation)(*op)
+				log.Info("Fetched install operation from wizard environment.")
+				r.operations[op.ID] = (ops.SiteOperation)(*op)
 			} else {
-				log.WithError(err).Debug("Failed to query install operation.")
+				log.WithError(err).Warn("Failed to query install operation.")
 			}
 		}
 	}
-	for _, op := range operations {
-		if operationID == "" || operationID == op.ID {
-			result = append(result, op)
-		}
+	return nil
+}
+
+func (r *backendOperations) init(clusterBackend storage.Backend) error {
+	clusterOperations, err := storage.GetOperations(clusterBackend)
+	if err != nil {
+		return trace.Wrap(err, "failed to query cluster operations")
 	}
-	return result
+	if len(clusterOperations) == 0 {
+		return nil
+	}
+	// Initialize the operation state from the list of existing cluster operations
+	for _, op := range clusterOperations {
+		r.operations[op.ID] = (ops.SiteOperation)(op)
+	}
+	r.clusterOperation = (*ops.SiteOperation)(&clusterOperations[0])
+	r.operations[r.clusterOperation.ID] = *r.clusterOperation
+	return nil
+}
+
+func (r *backendOperations) getOperationAndUpdateCache(backend storage.Backend, logger logrus.FieldLogger) *ops.SiteOperation {
+	op, err := storage.GetLastOperation(backend)
+	if err == nil {
+		// Operation from the backend takes precedence over the existing operation (from cluster state)
+		r.operations[op.ID] = (ops.SiteOperation)(*op)
+	} else {
+		logger.WithError(err).Warn("Failed to query operation.")
+	}
+	return (*ops.SiteOperation)(op)
+}
+
+func (r backendOperations) isActiveInstallOperation() bool {
+	// FIXME: continue using wizard as source of truth as operation state
+	// replicated in etcd is reported completed before it actually is
+	return r.clusterOperation == nil || (r.clusterOperation.Type == ops.OperationInstall)
+}
+
+type backendOperations struct {
+	operations       map[string]ops.SiteOperation
+	clusterOperation *ops.SiteOperation
 }
 
 func getActiveOperationFromList(operations []ops.SiteOperation) (*ops.SiteOperation, error) {
@@ -206,10 +269,12 @@ func getActiveOperationFromList(operations []ops.SiteOperation) (*ops.SiteOperat
 	return nil, trace.NotFound("no active operations found")
 }
 
-func formatOperations(operations []ops.SiteOperation) string {
-	var formats []string
-	for _, op := range operations {
-		formats = append(formats, fmt.Sprintf("operation(id=%v, type=%v)", op.ID, op.Type))
+func (r oplist) String() string {
+	var ops []string
+	for _, op := range r {
+		ops = append(ops, op.String())
 	}
-	return strings.Join(formats, "\n")
+	return strings.Join(ops, "\n")
 }
+
+type oplist []ops.SiteOperation
