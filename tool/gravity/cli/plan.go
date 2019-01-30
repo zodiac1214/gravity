@@ -17,6 +17,7 @@ limitations under the License.
 package cli
 
 import (
+	"context"
 	"fmt"
 	"os"
 
@@ -25,11 +26,31 @@ import (
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/update"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/fatih/color"
 	"github.com/gravitational/trace"
 )
+
+func initUpdateOperationPlan(localEnv, updateEnv *localenv.LocalEnvironment) error {
+	ctx := context.TODO()
+	clusterEnv, err := localEnv.NewClusterEnvironment()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	if clusterEnv.Client == nil {
+		return trace.BadParameter("this operation can only be executed on one of the master nodes")
+	}
+
+	_, err = update.InitOperationPlan(ctx, localEnv, updateEnv, clusterEnv)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	return trace.Wrap(err)
+}
 
 func displayOperationPlan(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment, operationID string, format constants.Format) error {
 	op, err := getLastOperation(localEnv, updateEnv, joinEnv, operationID)

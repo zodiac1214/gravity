@@ -117,6 +117,7 @@ func InitAndCheck(g *Application, cmd string) error {
 		g.JoinCmd.FullCommand(),
 		g.AutoJoinCmd.FullCommand(),
 		g.UpdateTriggerCmd.FullCommand(),
+		g.UpdatePlanInitCmd.FullCommand(),
 		g.UpgradeCmd.FullCommand(),
 		g.RPCAgentRunCmd.FullCommand(),
 		g.LeaveCmd.FullCommand(),
@@ -172,6 +173,7 @@ func InitAndCheck(g *Application, cmd string) error {
 		g.SystemServiceUninstallCmd.FullCommand(),
 		g.EnterCmd.FullCommand(),
 		g.PlanetEnterCmd.FullCommand(),
+		g.UpdatePlanInitCmd.FullCommand(),
 		g.PlanCmd.FullCommand(),
 		g.PlanDisplayCmd.FullCommand(),
 		g.PlanExecuteCmd.FullCommand(),
@@ -323,6 +325,8 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 			updateEnv,
 			*g.UpdateTriggerCmd.App,
 			*g.UpdateTriggerCmd.Manual)
+	case g.UpdatePlanInitCmd.FullCommand():
+		return initUpdateOperationPlan(localEnv, updateEnv)
 	case g.UpgradeCmd.FullCommand():
 		if *g.UpgradeCmd.Resume {
 			*g.UpgradeCmd.Phase = fsm.RootPhase

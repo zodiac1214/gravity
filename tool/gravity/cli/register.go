@@ -164,6 +164,8 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.UpdateTriggerCmd.App = g.UpdateTriggerCmd.Arg("app", "Application version to update to, in the 'name:version' or 'name' (for latest version) format. If unspecified, currently installed application is updated").String()
 	g.UpdateTriggerCmd.Manual = g.UpdateTriggerCmd.Flag("manual", "Manual operation. Do not trigger automatic update").Short('m').Bool()
 
+	g.UpdatePlanInitCmd.CmdClause = g.UpdateCmd.Command("init-plan", "Initialize operation plan")
+
 	// upgrade is aliased to "update trigger"
 	g.UpgradeCmd.CmdClause = g.Command("upgrade", "Trigger an update operation for given application").Hidden()
 	g.UpgradeCmd.App = g.UpgradeCmd.Arg("app", "Application version to update to, in the 'name:version' or 'name' (for latest version) format. If unspecified, currently installed application is updated").String()

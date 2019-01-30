@@ -145,6 +145,7 @@ func (g *Application) isUpdateCommand(cmd string) bool {
 		g.PlanRollbackCmd.FullCommand(),
 		g.PlanResumeCmd.FullCommand(),
 		g.PlanCompleteCmd.FullCommand(),
+		g.UpdatePlanInitCmd.FullCommand(),
 		g.UpdateTriggerCmd.FullCommand(),
 		g.UpgradeCmd.FullCommand():
 		return true

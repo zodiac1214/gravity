@@ -68,10 +68,8 @@ type Application struct {
 	RemoveCmd RemoveCmd
 	// PlanCmd manages an operation plan
 	PlanCmd PlanCmd
-	// PlanInitCmd creates a new update operation plan
-	PlanInitCmd PlanInitCmd
-	// PlanSyncCmd synchronizes operation plan between local and cluster backends
-	PlanSyncCmd PlanSyncCmd
+	// UpdatePlanInitCmd creates a new update operation plan
+	UpdatePlanInitCmd UpdatePlanInitCmd
 	// PlanDisplayCmd displays plan of an operation
 	PlanDisplayCmd PlanDisplayCmd
 	// PlanExecuteCmd executes a phase of an active operation
@@ -457,16 +455,6 @@ type PlanCmd struct {
 	SkipVersionCheck *bool
 }
 
-// PlanInitCmd creates a new update operation plan
-type PlanInitCmd struct {
-	*kingpin.CmdClause
-}
-
-// PlanSyncCmd synchronizes operation plan between local and cluster backends
-type PlanSyncCmd struct {
-	*kingpin.CmdClause
-}
-
 // PlanDisplayCmd displays plan of a specific operation
 type PlanDisplayCmd struct {
 	*kingpin.CmdClause
@@ -580,6 +568,11 @@ type UpdateSystemCmd struct {
 	WithStatus *bool
 	// RuntimePackage specifies the runtime package to update to
 	RuntimePackage *loc.Locator
+}
+
+// UpdatePlanInitCmd creates a new update operation plan
+type UpdatePlanInitCmd struct {
+	*kingpin.CmdClause
 }
 
 // UpgradeCmd launches app upgrade
