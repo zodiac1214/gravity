@@ -20,7 +20,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/gravitational/gravity/lib/app"
@@ -51,7 +50,7 @@ type fsmUpdateEngine struct {
 
 // newUpdateEngine returns a new instance of FSM engine for update
 func newUpdateEngine(ctx context.Context, config FSMConfig, logger logrus.FieldLogger) (*fsmUpdateEngine, error) {
-	plan, err := loadPlan(config.LocalBackend, logger)
+	plan, err := loadPlan(config.LocalBackend, config.Operation.Key(), logger)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -235,32 +234,14 @@ func (f *fsmUpdateEngine) reconcilePlan(ctx context.Context) error {
 	return nil
 }
 
-func loadPlan(backend storage.Backend, logger logrus.FieldLogger) (*storage.OperationPlan, error) {
-	op, err := storage.GetLastOperation(backend)
-	if err != nil {
-		if !trace.IsNotFound(err) {
-			return nil, trace.Wrap(err)
-		}
-
-		logger.Error(trace.DebugReport(err))
-		execPath, err := os.Executable()
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
-
-		return nil, trace.NotFound("Please run `sudo %[1]v upgrade` or `sudo %[1]v upgrade --manual` first", execPath)
-	}
-
-	plan, err := backend.GetOperationPlan(op.SiteDomain, op.ID)
+func loadPlan(backend storage.Backend, opKey ops.SiteOperationKey, logger logrus.FieldLogger) (*storage.OperationPlan, error) {
+	plan, err := backend.GetOperationPlan(opKey.SiteDomain, opKey.OperationID)
 	if err != nil && !trace.IsNotFound(err) {
 		return nil, trace.Wrap(err)
 	}
-
 	if plan == nil {
-		return nil, trace.NotFound("operation %v (%v) doesn't have a plan",
-			op.Type, op.ID)
+		return nil, trace.NotFound("operation %v doesn't have a plan", opKey.OperationID)
 	}
-
 	return plan, nil
 }
 

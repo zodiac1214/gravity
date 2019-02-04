@@ -318,7 +318,7 @@ func VerifyLicense(packages pack.PackageService, license string) error {
 
 // GetExpandOperation returns the first available expand operation from
 // the provided backend
-func GetExpandOperation(backend storage.Backend) (*storage.SiteOperation, error) {
+func GetExpandOperation(backend storage.Backend) (*SiteOperation, error) {
 	cluster, err := backend.GetLocalSite(defaults.SystemAccountID)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -329,7 +329,7 @@ func GetExpandOperation(backend storage.Backend) (*storage.SiteOperation, error)
 	}
 	for _, operation := range operations {
 		if operation.Type == OperationExpand {
-			return &operation, nil
+			return (*SiteOperation)(&operation), nil
 		}
 	}
 	return nil, trace.NotFound("expand operation not found")

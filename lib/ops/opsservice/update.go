@@ -375,7 +375,7 @@ func (s *site) startUpdateAgent(ctx context.Context, opCtx *operationContext, up
 		C("%s package export --file-mask=%o %s %s --ops-url=%s --insecure --quiet",
 			constants.GravityBin, defaults.SharedExecutableMask,
 			gravityPackage.String(), agentExecPath, defaults.GravityServiceURL).
-		C("%s update init-plan", agentExecPath).
+		C("%s update init-plan --operation-id=%v", agentExecPath, opCtx.operation.ID).
 		// distribute agents and upgrade process
 		C("%s agent deploy --leader=upgrade --node=sync-plan", agentExecPath).
 		WithLogger(s.WithField("node", master.HostName())).

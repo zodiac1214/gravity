@@ -1406,6 +1406,8 @@ type GarbageCollectCmd struct {
 	Phase *string
 	// PhaseTimeout is the phase execution timeout
 	PhaseTimeout *time.Duration
+	// OperationID specifies the ID of the operation to work with
+	OperationID *string
 	// Resume is whether to resume a failed garbage collection
 	Resume *bool
 	// Manual is whether the operation is not executed automatically

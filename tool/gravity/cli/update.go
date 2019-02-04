@@ -117,13 +117,13 @@ func updateTrigger(
 		clusterName:  cluster.Domain,
 		clusterEnv:   clusterEnv,
 		proxy:        proxy,
-		nodeParams: constants.RPCAgentSyncPlanFunction,
+		nodeParams:   constants.RPCAgentSyncPlanFunction,
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), defaults.AgentDeployTimeout)
 	defer cancel()
 
-	_, err = update.InitOperationPlan(ctx, localEnv, updateEnv, clusterEnv)
+	_, err = update.InitOperationPlan(ctx, localEnv, updateEnv, clusterEnv, *opKey)
 	if err != nil {
 		return trace.Wrap(err)
 	}

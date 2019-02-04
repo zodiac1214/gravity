@@ -293,7 +293,7 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 				PhaseID: *g.InstallCmd.Phase,
 				Force:   *g.InstallCmd.Force,
 				Timeout: *g.InstallCmd.PhaseTimeout,
-			})
+			}, nil)
 		}
 		return startInstall(localEnv, NewInstallConfig(g))
 	case g.JoinCmd.FullCommand():
@@ -302,10 +302,11 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 		}
 		if *g.JoinCmd.Phase != "" {
 			return executeJoinPhase(localEnv, joinEnv, PhaseParams{
-				PhaseID: *g.JoinCmd.Phase,
-				Force:   *g.JoinCmd.Force,
-				Timeout: *g.JoinCmd.PhaseTimeout,
-			})
+				PhaseID:     *g.JoinCmd.Phase,
+				Force:       *g.JoinCmd.Force,
+				Timeout:     *g.JoinCmd.PhaseTimeout,
+				OperationID: *g.JoinCmd.OperationID,
+			}, nil)
 		}
 		return Join(localEnv, joinEnv, NewJoinConfig(g))
 	case g.AutoJoinCmd.FullCommand():
@@ -338,8 +339,7 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 					Force:            *g.UpgradeCmd.Force,
 					Timeout:          *g.UpgradeCmd.Timeout,
 					SkipVersionCheck: *g.UpgradeCmd.SkipVersionCheck,
-				},
-			)
+				}, nil)
 		}
 		return updateTrigger(localEnv,
 			updateEnv,
@@ -347,30 +347,30 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 			*g.UpgradeCmd.Manual)
 	case g.PlanExecuteCmd.FullCommand():
 		return executePhase(localEnv, updateEnv, joinEnv,
-			*g.PlanCmd.OperationID,
 			PhaseParams{
 				PhaseID:          *g.PlanExecuteCmd.Phase,
 				Force:            *g.PlanExecuteCmd.Force,
 				Timeout:          *g.PlanExecuteCmd.PhaseTimeout,
 				SkipVersionCheck: *g.PlanCmd.SkipVersionCheck,
+				OperationID:      *g.PlanCmd.OperationID,
 			})
 	case g.PlanResumeCmd.FullCommand():
 		return executePhase(localEnv, updateEnv, joinEnv,
-			*g.PlanCmd.OperationID,
 			PhaseParams{
 				PhaseID:          fsm.RootPhase,
 				Force:            *g.PlanResumeCmd.Force,
 				Timeout:          *g.PlanResumeCmd.PhaseTimeout,
 				SkipVersionCheck: *g.PlanCmd.SkipVersionCheck,
+				OperationID:      *g.PlanCmd.OperationID,
 			})
 	case g.PlanRollbackCmd.FullCommand():
 		return rollbackPhase(localEnv, updateEnv, joinEnv,
-			*g.PlanCmd.OperationID,
 			PhaseParams{
 				PhaseID:          *g.PlanRollbackCmd.Phase,
 				Force:            *g.PlanRollbackCmd.Force,
 				Timeout:          *g.PlanRollbackCmd.PhaseTimeout,
 				SkipVersionCheck: *g.PlanCmd.SkipVersionCheck,
+				OperationID:      *g.PlanCmd.OperationID,
 			})
 	case g.PlanDisplayCmd.FullCommand():
 		return displayOperationPlan(localEnv, updateEnv, joinEnv,
@@ -700,10 +700,11 @@ func Execute(g *Application, cmd string, extraArgs []string) error {
 		}
 		if phase != "" {
 			return executeGarbageCollectPhase(localEnv, PhaseParams{
-				PhaseID: phase,
-				Timeout: *g.GarbageCollectCmd.PhaseTimeout,
-				Force:   *g.GarbageCollectCmd.Force,
-			})
+				PhaseID:     phase,
+				Timeout:     *g.GarbageCollectCmd.PhaseTimeout,
+				Force:       *g.GarbageCollectCmd.Force,
+				OperationID: *g.GarbageCollectCmd.OperationID,
+			}, nil)
 		}
 		return garbageCollect(localEnv, *g.GarbageCollectCmd.Manual, *g.GarbageCollectCmd.Confirmed)
 	case g.SystemGCJournalCmd.FullCommand():

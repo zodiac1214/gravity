@@ -44,14 +44,15 @@ func InitOperationPlan(
 	ctx context.Context,
 	localEnv, updateEnv *localenv.LocalEnvironment,
 	clusterEnv *localenv.ClusterEnvironment,
+	opKey ops.SiteOperationKey,
 ) (*storage.OperationPlan, error) {
-	operation, err := storage.GetLastOperation(clusterEnv.Backend)
+	operation, err := storage.GetOperationByID(clusterEnv.Backend, opKey.OperationID)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 
 	if operation.Type != ops.OperationUpdate {
-		return nil, trace.BadParameter("%q does not support plans", operation.Type)
+		return nil, trace.BadParameter("expected update operation but got %q", operation.Type)
 	}
 
 	plan, err := clusterEnv.Backend.GetOperationPlan(operation.SiteDomain, operation.ID)
@@ -134,7 +135,11 @@ func SyncOperationPlan(src storage.Backend, dst storage.Backend) error {
 }
 
 // newOperationPlan generates a new plan for the provided operation
-func newOperationPlan(env *localenv.ClusterEnvironment, dnsConfig storage.DNSConfig, op storage.SiteOperation) (*storage.OperationPlan, error) {
+func newOperationPlan(
+	env *localenv.ClusterEnvironment,
+	dnsConfig storage.DNSConfig,
+	operation storage.SiteOperation,
+) (*storage.OperationPlan, error) {
 	if env.Client == nil {
 		return nil, trace.BadParameter("Kubernetes client is required")
 	}
@@ -167,7 +172,7 @@ func newOperationPlan(env *localenv.ClusterEnvironment, dnsConfig storage.DNSCon
 		return nil, trace.Wrap(err)
 	}
 
-	updatePackage, err := op.Update.Package()
+	updatePackage, err := operation.Update.Package()
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -180,7 +185,7 @@ func newOperationPlan(env *localenv.ClusterEnvironment, dnsConfig storage.DNSCon
 		return nil, trace.Wrap(err)
 	}
 
-	links, err := env.Backend.GetOpsCenterLinks(op.SiteDomain)
+	links, err := env.Backend.GetOpsCenterLinks(operation.SiteDomain)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -190,7 +195,7 @@ func newOperationPlan(env *localenv.ClusterEnvironment, dnsConfig storage.DNSCon
 	}
 
 	plan, err := newOperationPlanFromParams(newPlanParams{
-		operation:        op,
+		operation:        operation,
 		servers:          servers,
 		installedRuntime: *installedRuntime,
 		installedApp:     *installedApp,

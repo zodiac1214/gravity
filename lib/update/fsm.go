@@ -55,6 +55,8 @@ type FSMConfig struct {
 	Client *kubernetes.Clientset
 	// Operator is the local cluster operator
 	Operator ops.Operator
+	// Operation specifies the upgrade operation to work with
+	Operation *ops.SiteOperation
 	// Users is the cluster identity service
 	Users users.Identity
 	// Spec is used to retrieve a phase executor, allows

@@ -34,6 +34,10 @@ import (
 type PhaseParams struct {
 	// PhaseID is the ID of the phase to execute
 	PhaseID string
+	// OperationID specifies the operation to work with.
+	// If unspecified, last operation is used.
+	// Some commands will require the last operation to also be active
+	OperationID string
 	// Force allows to force phase execution
 	Force bool
 	// Timeout is phase execution timeout
@@ -42,39 +46,39 @@ type PhaseParams struct {
 	SkipVersionCheck bool
 }
 
-func executePhase(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment, operationID string, params PhaseParams) error {
-	op, err := getActiveOperation(localEnv, updateEnv, joinEnv, operationID)
+func executePhase(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment, params PhaseParams) error {
+	op, err := getActiveOperation(localEnv, updateEnv, joinEnv, params.OperationID)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	switch op.Type {
 	case ops.OperationInstall:
-		return executeInstallPhase(localEnv, params)
+		return executeInstallPhase(localEnv, params, op)
 	case ops.OperationExpand:
-		return executeJoinPhase(localEnv, joinEnv, params)
+		return executeJoinPhase(localEnv, joinEnv, params, op)
 	case ops.OperationUpdate:
-		return executeUpgradePhase(localEnv, updateEnv, params)
+		return executeUpgradePhase(localEnv, updateEnv, params, op)
 	case ops.OperationUpdateEnvars:
 		return executeEnvarsPhase(localEnv, updateEnv, params, *op)
 	case ops.OperationGarbageCollect:
-		return executeGarbageCollectPhase(localEnv, params)
+		return executeGarbageCollectPhase(localEnv, params, op)
 	default:
 		return trace.BadParameter("operation type %q does not support plan execution", op.Type)
 	}
 }
 
-func rollbackPhase(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment, operationID string, params PhaseParams) error {
-	op, err := getActiveOperation(localEnv, updateEnv, joinEnv, operationID)
+func rollbackPhase(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment, params PhaseParams) error {
+	op, err := getActiveOperation(localEnv, updateEnv, joinEnv, params.OperationID)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	switch op.Type {
 	case ops.OperationInstall:
-		return rollbackInstallPhase(localEnv, params)
+		return rollbackInstallPhase(localEnv, params, op)
 	case ops.OperationExpand:
-		return rollbackJoinPhase(localEnv, joinEnv, params)
+		return rollbackJoinPhase(localEnv, joinEnv, params, op)
 	case ops.OperationUpdate:
-		return rollbackUpgradePhase(localEnv, updateEnv, params)
+		return rollbackUpgradePhase(localEnv, updateEnv, params, *op)
 	case ops.OperationUpdateEnvars:
 		return rollbackEnvarsPhase(localEnv, updateEnv, params, *op)
 	default:
@@ -90,9 +94,9 @@ func completeOperationPlan(localEnv, updateEnv, joinEnv *localenv.LocalEnvironme
 	switch op.Type {
 	case ops.OperationInstall:
 		// There's only one install operation
-		return completeInstallPlan(localEnv)
+		return completeInstallPlan(localEnv, op)
 	case ops.OperationExpand:
-		return completeJoinPlan(localEnv, joinEnv, *op)
+		return completeJoinPlan(localEnv, joinEnv, op)
 	case ops.OperationUpdate:
 		return completeUpdatePlan(localEnv, updateEnv, *op)
 	case ops.OperationUpdateEnvars:

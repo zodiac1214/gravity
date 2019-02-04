@@ -204,7 +204,7 @@ func newCollector(env *localenv.LocalEnvironment) (*vacuum.Collector, error) {
 	return collector, nil
 }
 
-func executeGarbageCollectPhase(env *localenv.LocalEnvironment, params PhaseParams) error {
+func executeGarbageCollectPhase(env *localenv.LocalEnvironment, params PhaseParams, operation *ops.SiteOperation) error {
 	clusterPackages, err := env.ClusterPackages()
 	if err != nil {
 		return trace.Wrap(err)
@@ -225,9 +225,11 @@ func executeGarbageCollectPhase(env *localenv.LocalEnvironment, params PhasePara
 		return trace.Wrap(err)
 	}
 
-	operation, _, err := ops.GetLastOperation(cluster.Key(), operator)
-	if err != nil {
-		return trace.Wrap(err)
+	if operation == nil {
+		operation, _, err = ops.GetLastOperation(cluster.Key(), operator)
+		if err != nil {
+			return trace.Wrap(err)
+		}
 	}
 
 	runtimePath, err := getAnyRuntimePackagePath(env.Packages)
