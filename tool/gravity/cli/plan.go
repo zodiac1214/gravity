@@ -42,11 +42,15 @@ func initUpdateOperationPlan(localEnv, updateEnv *localenv.LocalEnvironment) err
 	if clusterEnv.Client == nil {
 		return trace.BadParameter("this operation can only be executed on one of the master nodes")
 	}
-	operation, err := storage.GetLastOperation(updateEnv.Backend)
+	cluster, err := clusterEnv.Operator.GetLocalSite()
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	_, err = update.InitOperationPlan(ctx, localEnv, updateEnv, clusterEnv, (*ops.SiteOperation)(operation).Key())
+	operation, _, err := ops.GetLastOperation(cluster.Key(), clusterEnv.Operator)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	_, err = update.InitOperationPlan(ctx, localEnv, updateEnv, clusterEnv, operation.Key())
 	if err != nil {
 		return trace.Wrap(err)
 	}

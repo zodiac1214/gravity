@@ -25,7 +25,6 @@ import (
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/storage"
 
-	"github.com/fatih/color"
 	"github.com/gravitational/trace"
 	"github.com/sirupsen/logrus"
 )
@@ -122,22 +121,10 @@ func getLastOperation(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment, o
 		log.WithField("operation", operations[0]).Info("Fetched an operation by ID.")
 		return &operations[0], nil
 	}
-	op, err := getActiveOperationFromList(operations)
-	if err != nil {
-		log.WithError(err).Warn("Failed to find active operation, will fall back to last completed.")
-	}
-	if op == nil {
-		log.WithField("operation", op).Info("Fetched multiple operations, will display the most recent.")
-		op = &operations[0]
-		if len(operations) != 1 {
-			localEnv.Println(color.YellowString("Multiple operations found: \n%v\n, please specify operation with --operation-id.\n"+
-				"Displaying the most recent operation.",
-				oplist(operations)))
-		}
-	} else {
-		log.WithField("operation", op).Info("Fetched active operation.")
-	}
-	return op, nil
+	log.Infof("Multiple operations found: \n%v\n, please specify operation with --operation-id.\n"+
+		"Displaying the most recent operation.",
+		oplist(operations))
+	return &operations[0], nil
 }
 
 func getActiveOperation(localEnv, updateEnv, joinEnv *localenv.LocalEnvironment, operationID string) (*ops.SiteOperation, error) {

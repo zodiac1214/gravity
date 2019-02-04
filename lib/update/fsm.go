@@ -98,6 +98,9 @@ func (c *FSMConfig) checkAndSetDefaults() error {
 	if c.Backend == nil {
 		return trace.BadParameter("parameter Backend must be set")
 	}
+	if c.Operation == nil {
+		return trace.BadParameter("parameter Operation must be set")
+	}
 	if c.Spec == nil {
 		c.Spec = fsmSpec(*c)
 	}
