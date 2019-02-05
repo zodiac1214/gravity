@@ -739,6 +739,7 @@ func (*userMarshaler) GenerateUser(in teleservices.User) (teleservices.User, err
 			SAMLIdentities:   in.GetSAMLIdentities(),
 			GithubIdentities: in.GetGithubIdentities(),
 			Roles:            in.GetRoles(),
+			Expires:          in.Expiry(),
 		},
 	}, nil
 }
