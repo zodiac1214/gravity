@@ -29,7 +29,6 @@ import (
 	teleutils "github.com/gravitational/teleport/lib/utils"
 	"github.com/gravitational/trace"
 	"github.com/jonboulle/clockwork"
-	log "github.com/sirupsen/logrus"
 )
 
 // Interface manages cluster configuration
@@ -37,9 +36,9 @@ type Interface interface {
 	// Resource provides common resource methods
 	teleservices.Resource
 	// GetKubeletConfig returns the configuration of the kubelet
-	GetKubeletConfig() Kubelet
+	GetKubeletConfig() *Kubelet
 	// GetAPIServerConfig returns the configuration of the API server
-	GetAPIServerConfig() ControlPlaneComponent
+	GetAPIServerConfig() *ControlPlaneComponent
 	// GetGlobalConfig returns the global configuration
 	GetGlobalConfig() Global
 }
@@ -88,12 +87,12 @@ func (r *Resource) SetTTL(clock clockwork.Clock, ttl time.Duration) {
 }
 
 // GetKubeletConfig returns the configuration of the kubelet
-func (r *Resource) GetKubeletConfig() Kubelet {
+func (r *Resource) GetKubeletConfig() *Kubelet {
 	return r.Spec.ComponentConfigs.Kubelet
 }
 
 // GetAPIServerConfig returns the configuration of the API server
-func (r *Resource) GetAPIServerConfig() ControlPlaneComponent {
+func (r *Resource) GetAPIServerConfig() *ControlPlaneComponent {
 	return r.Spec.APIServer
 }
 
@@ -146,7 +145,7 @@ type Spec struct {
 	// ComponentsConfigs groups component configurations
 	ComponentConfigs
 	// APIServer specifies API server configuration
-	APIServer ControlPlaneComponent `json:"apiServer"`
+	APIServer *ControlPlaneComponent `json:"apiServer,omitempty"`
 	// TODO: Scheduler, ControllerManager, Proxy
 	// Global describes global configuration
 	Global Global `json:"global"`
@@ -155,12 +154,12 @@ type Spec struct {
 // ComponentsConfigs groups component configurations
 type ComponentConfigs struct {
 	// Kubelet defines kubelet configuration
-	Kubelet Kubelet `json:"kubelet"`
+	Kubelet *Kubelet `json:"kubelet,omitempty"`
 }
 
 // Kubelet defines kubelet configuration
 type Kubelet struct {
-	json.RawMessage `json:",omitempty"`
+	json.RawMessage
 }
 
 // ControlPlaneComponent defines configuration of a control plane component
@@ -171,10 +170,10 @@ type ControlPlaneComponent struct {
 // Global describes global configuration
 type Global struct {
 	// CloudProvider specifies the cloud provider
-	CloudProvider string `json:"cloud_provider"`
+	CloudProvider string `json:"cloudProvider"`
 	// CloudConfig describes the cloud configuration.
 	// The configuration is provider-specific
-	CloudConfig CloudConfig `json:"cloud_config"`
+	CloudConfig CloudConfig `json:"cloudConfig"`
 }
 
 func (r CloudConfig) MarshalJSON() ([]byte, error) {

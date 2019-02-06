@@ -39,7 +39,7 @@ func (S) TestSingleNodePlan(c *C) {
 	operation := ops.SiteOperation{
 		ID:         "1",
 		AccountID:  "0",
-		Type:       ops.OperationUpdateEnvars,
+		Type:       ops.OperationUpdateRuntimeEnviron,
 		SiteDomain: "cluster",
 	}
 	servers := []storage.Server{
@@ -135,7 +135,7 @@ func (S) TestMultiNodePlan(c *C) {
 	operation := ops.SiteOperation{
 		ID:         "1",
 		AccountID:  "0",
-		Type:       ops.OperationUpdateEnvars,
+		Type:       ops.OperationUpdateRuntimeEnviron,
 		SiteDomain: "cluster",
 	}
 	servers := []storage.Server{

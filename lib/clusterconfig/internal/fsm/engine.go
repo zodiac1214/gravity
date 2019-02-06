@@ -21,7 +21,7 @@ import (
 	"time"
 
 	"github.com/gravitational/gravity/lib/app"
-	libphase "github.com/gravitational/gravity/lib/cloudconfig/internal/phases"
+	libphase "github.com/gravitational/gravity/lib/clusterconfig/internal/phases"
 	"github.com/gravitational/gravity/lib/constants"
 	libfsm "github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/localenv"
@@ -266,10 +266,10 @@ func configToExecutor(config Config) libfsm.FSMSpecFunc {
 			logger.Server = params.Phase.Data.Server
 		}
 		switch params.Phase.Executor {
-		case libphase.UpdateConfig:
-			return libphase.NewUpdateConfig(params,
-				config.Operator, *config.Operation, config.Apps, config.ClusterPackages,
-				logger)
+		// case libphase.UpdateConfig:
+		// 	return libphase.NewUpdateConfig(params,
+		// 		config.Operator, *config.Operation, config.Apps, config.ClusterPackages,
+		// 		logger)
 		case libphase.RestartContainer:
 			return libphase.NewRestart(params, config.Operator, config.Apps, config.Operation.ID,
 				logger)

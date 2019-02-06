@@ -17,7 +17,7 @@ limitations under the License.
 package clusterconfig
 
 import (
-	"github.com/gravitational/gravity/lib/cloudconfig/internal/fsm"
+	"github.com/gravitational/gravity/lib/clusterconfig/internal/fsm"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/storage"
 

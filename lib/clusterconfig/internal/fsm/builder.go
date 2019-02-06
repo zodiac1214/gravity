@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"path"
 
-	libphase "github.com/gravitational/gravity/lib/environ/internal/phases"
+	libphase "github.com/gravitational/gravity/lib/clusterconfig/internal/phases"
 	libfsm "github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/ops"

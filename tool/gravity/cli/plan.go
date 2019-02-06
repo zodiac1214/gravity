@@ -74,8 +74,12 @@ func displayOperationPlan(localEnv, updateEnv, joinEnv *localenv.LocalEnvironmen
 		return displayUpdateOperationPlan(updateEnv, op.Key(), format)
 	case ops.OperationGarbageCollect:
 		return displayClusterOperationPlan(localEnv, op.Key(), format)
-	case ops.OperationUpdateEnvars:
-		return displayUpdateEnvarsOperationPlan(updateEnv, op.Key(), format)
+	case ops.OperationUpdateRuntimeEnviron:
+		return displayUpdateEnvironOperationPlan(updateEnv, op.Key(), format)
+	case ops.OperationUpdateConfig:
+		// FIXME
+		// return displayUpdateConfigOperationPlan(updateEnv, op.Key(), format)
+		return nil
 	default:
 		return trace.BadParameter("unknown operation type %q", op.Type)
 	}
@@ -106,7 +110,7 @@ func displayUpdateOperationPlan(updateEnv *localenv.LocalEnvironment, opKey ops.
 	return nil
 }
 
-func displayUpdateEnvarsOperationPlan(updateEnv *localenv.LocalEnvironment, opKey ops.SiteOperationKey, format constants.Format) error {
+func displayUpdateEnvironOperationPlan(updateEnv *localenv.LocalEnvironment, opKey ops.SiteOperationKey, format constants.Format) error {
 	plan, err := fsm.GetOperationPlan(updateEnv.Backend, opKey.SiteDomain, opKey.OperationID)
 	if err != nil {
 		return trace.Wrap(err)

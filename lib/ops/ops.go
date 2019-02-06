@@ -34,6 +34,7 @@ import (
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/storage/clusterconfig"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/cloudflare/cfssl/csr"
@@ -462,6 +463,14 @@ type EnvironmentVariables interface {
 	CreateUpdateEnvarsOperation(CreateUpdateEnvarsOperationRequest) (*SiteOperationKey, error)
 	// GetClusterEnvironmentVariables retrieves the cluster runtime environment variables
 	GetClusterEnvironmentVariables(SiteKey) (storage.EnvironmentVariables, error)
+}
+
+// EnvironmentVariables manages runtime environment variables in cluster
+type ClusterConfiguration interface {
+	// CreateUpdateConfigOperation creates a new operation to update cluster configuration
+	CreateUpdateConfigOperation(CreateUpdateConfigOperationRequest) (*SiteOperationKey, error)
+	// GetClusterConfiguration retrieves the cluster configuration
+	GetClusterConfiguration(SiteKey) (clusterconfig.Interface, error)
 }
 
 // ClusterCertificate represents the cluster certificate
@@ -952,8 +961,10 @@ func (s *SiteOperation) String() string {
 		typeS = "uninstall"
 	case OperationGarbageCollect:
 		typeS = "garbage collect"
-	case OperationUpdateEnvars:
-		typeS = "update cluster envars"
+	case OperationUpdateRuntimeEnviron:
+		typeS = "update runtime environment"
+	case OperationUpdateConfig:
+		typeS = "update configuration"
 	}
 	return fmt.Sprintf("operation(%v(%v), cluster=%v, state=%s, created=%v)",
 		typeS, s.ID, s.SiteDomain, s.State, s.Created.Format(constants.HumanDateFormat))
@@ -1096,7 +1107,7 @@ type CreateSiteShrinkOperationRequest struct {
 	// NodeRemoved indicates whether the node has already been removed from the cluster
 	// Used in cases where we recieve an event where the node is being terminated, but may
 	// not have disconnected from the cluster yet.
-	NodeRemoved bool `json:node_removed`
+	NodeRemoved bool `json:"node_removed"`
 }
 
 // CheckAndSetDefaults makes sure the request is correct and fills in some unset
@@ -1157,6 +1168,15 @@ type CreateUpdateEnvarsOperationRequest struct {
 	ClusterKey SiteKey `json:"cluster_key"`
 	// Env specifies the new cluster environment variables
 	Env map[string]string `json:"env"`
+}
+
+// CreateUpdateConfigOperationRequest is a request
+// to update cluster configuration
+type CreateUpdateConfigOperationRequest struct {
+	// ClusterKey identifies the cluster
+	ClusterKey SiteKey `json:"cluster_key"`
+	// Config specifies the new configuration as JSON-encoded payload
+	Config json.RawMessage `json:"config"`
 }
 
 // AgentService coordinates install agents that are started on every server

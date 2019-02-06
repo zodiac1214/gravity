@@ -70,7 +70,7 @@ spec: {}`,
 			comment: "overrides metadata.name and metadata.namespace",
 		},
 		{
-			in: `kind: runtimeenvironment
+			in: `kind: ClusterConfiguration
 version: v1
 spec:
   global:

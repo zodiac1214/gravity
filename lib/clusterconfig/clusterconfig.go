@@ -22,7 +22,7 @@ import (
 	"time"
 
 	"github.com/gravitational/gravity/lib/app"
-	"github.com/gravitational/gravity/lib/cloudconfig/internal/fsm"
+	"github.com/gravitational/gravity/lib/clusterconfig/internal/fsm"
 	"github.com/gravitational/gravity/lib/constants"
 	libfsm "github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/localenv"

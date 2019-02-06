@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Gravitational, Inc.
+Copyright 2019 Gravitational, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@ import (
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/kubernetes"
 	"github.com/gravitational/gravity/lib/ops"
-	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/storage/clusterconfig"
 
 	"github.com/gravitational/rigging"
 	"github.com/gravitational/trace"
@@ -34,8 +34,8 @@ import (
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
-// CreateUpdateEnvarsOperation creates a new operation to update cluster environment variables
-func (o *Operator) CreateUpdateEnvarsOperation(r ops.CreateUpdateEnvarsOperationRequest) (*ops.SiteOperationKey, error) {
+// CreateUpdateConfigOperation creates a new operation to update cluster configuration
+func (o *Operator) CreateUpdateConfigOperation(r ops.CreateUpdateConfigOperationRequest) (*ops.SiteOperationKey, error) {
 	err := r.ClusterKey.Check()
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -46,50 +46,47 @@ func (o *Operator) CreateUpdateEnvarsOperation(r ops.CreateUpdateEnvarsOperation
 		return nil, trace.Wrap(err)
 	}
 
-	key, err := cluster.createUpdateEnvarsOperation(r)
+	key, err := cluster.createUpdateConfigOperation(r)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	return key, nil
 }
 
-// GetClusterEnvironmentVariables retrieves the cluster environment variables
-func (o *Operator) GetClusterEnvironmentVariables(key ops.SiteKey) (env storage.EnvironmentVariables, err error) {
+// GetClusterConfiguration retrieves the cluster configuration
+func (o *Operator) GetClusterConfiguration(key ops.SiteKey) (config clusterconfig.Interface, err error) {
 	client, err := o.GetKubeClient()
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	configmap, err := client.CoreV1().ConfigMaps(defaults.KubeSystemNamespace).
-		Get(constants.ClusterEnvironmentMap, metav1.GetOptions{})
+	_, err = client.CoreV1().ConfigMaps(defaults.KubeSystemNamespace).
+		Get(constants.ClusterConfigurationMap, metav1.GetOptions{})
 	err = rigging.ConvertError(err)
 	if err != nil && !trace.IsNotFound(err) {
 		return nil, trace.Wrap(err)
 	}
-	var data map[string]string
-	if configmap != nil {
-		data = configmap.Data
-	}
-	env = storage.NewEnvironment(data)
-	return env, nil
+	// FIXME
+	// config = clusterconfig.New(?)
+	return config, nil
 }
 
-// NewEnvironmentConfigMap creates the backing ConfigMap to host cluster runtime environment variables
-func NewEnvironmentConfigMap(data map[string]string) *v1.ConfigMap {
+// NewConfigurationConfigMap creates the backing ConfigMap to host cluster configuration
+func NewConfigurationConfigMap(data map[string]string) *v1.ConfigMap {
 	return &v1.ConfigMap{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       constants.KindConfigMap,
 			APIVersion: metav1.SchemeGroupVersion.Version,
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      constants.ClusterEnvironmentMap,
+			Name:      constants.ClusterConfigurationMap,
 			Namespace: defaults.KubeSystemNamespace,
 		},
 		Data: data,
 	}
 }
 
-// createUpdateEnvarsOperation creates a new operation to update cluster environment variables
-func (s *site) createUpdateEnvarsOperation(req ops.CreateUpdateEnvarsOperationRequest) (*ops.SiteOperationKey, error) {
+// createUpdateConfigOperation creates a new operation to update cluster configuration
+func (s *site) createUpdateConfigOperation(req ops.CreateUpdateConfigOperationRequest) (*ops.SiteOperationKey, error) {
 	client, err := s.service.GetKubeClient()
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -119,15 +116,14 @@ func (s *site) createUpdateEnvarsOperation(req ops.CreateUpdateEnvarsOperationRe
 		Created:    s.clock().UtcNow(),
 		Updated:    s.clock().UtcNow(),
 		State:      ops.OperationUpdateEnvarsInProgress,
-		UpdateEnviron: &storage.UpdateEnvarsOperationState{
-			Env: req.Env,
-		},
+		// UpdateConfig: &storage.UpdateConfigOperationState{},
 	}
 	key, err := s.getOperationGroup().createSiteOperation(op)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	configmap.Data = req.Env
+	// FIXME
+	// configmap.Data = req.Env
 	err = kubernetes.Retry(context.TODO(), func() error {
 		_, err := configmaps.Update(configmap)
 		return trace.Wrap(err)
@@ -138,8 +134,8 @@ func (s *site) createUpdateEnvarsOperation(req ops.CreateUpdateEnvarsOperationRe
 	return key, nil
 }
 
-func getOrCreateConfigurationConfigMap(client corev1.ConfigMapInterface) (configmap *v1.ConfigMap, err error) {
-	configmap, err = client.Get(constants.ClusterConfigurationMap, metav1.GetOptions{})
+func getOrCreateEnvironmentConfigMap(client corev1.ConfigMapInterface) (configmap *v1.ConfigMap, err error) {
+	configmap, err = client.Get(constants.ClusterEnvironmentMap, metav1.GetOptions{})
 	if err != nil {
 		if !trace.IsNotFound(rigging.ConvertError(err)) {
 			return nil, trace.Wrap(err)
@@ -149,7 +145,7 @@ func getOrCreateConfigurationConfigMap(client corev1.ConfigMapInterface) (config
 	if err == nil {
 		return configmap, nil
 	}
-	configmap = NewConfigurationConfigMap(nil)
+	configmap = NewEnvironmentConfigMap(nil)
 	configmap, err = client.Create(configmap)
 	if err != nil {
 		return nil, trace.Wrap(rigging.ConvertError(err))

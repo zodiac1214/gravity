@@ -19,8 +19,8 @@ package fsm
 import (
 	"testing"
 
+	libphase "github.com/gravitational/gravity/lib/clusterconfig/internal/phases"
 	"github.com/gravitational/gravity/lib/compare"
-	libphase "github.com/gravitational/gravity/lib/environ/internal/phases"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/schema"
@@ -39,7 +39,7 @@ func (S) TestSingleNodePlan(c *C) {
 	operation := ops.SiteOperation{
 		ID:         "1",
 		AccountID:  "0",
-		Type:       ops.OperationUpdateEnvars,
+		Type:       ops.OperationUpdateConfig,
 		SiteDomain: "cluster",
 	}
 	servers := []storage.Server{
@@ -135,7 +135,7 @@ func (S) TestMultiNodePlan(c *C) {
 	operation := ops.SiteOperation{
 		ID:         "1",
 		AccountID:  "0",
-		Type:       ops.OperationUpdateEnvars,
+		Type:       ops.OperationUpdateConfig,
 		SiteDomain: "cluster",
 	}
 	servers := []storage.Server{

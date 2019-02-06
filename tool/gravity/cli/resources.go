@@ -73,7 +73,9 @@ func CreateResource(
 	user string,
 	manual, confirmed bool,
 ) error {
-	if resource.Kind != storage.KindRuntimeEnvironment {
+	switch resource.Kind {
+	case storage.KindRuntimeEnvironment, storage.KindClusterConfiguration:
+	default:
 		return trace.Wrap(control.Create(bytes.NewReader(resource.Raw), upsert, user))
 	}
 	if checkRunningAsRoot() != nil {
@@ -85,7 +87,14 @@ func CreateResource(
 		return trace.Wrap(err)
 	}
 	defer updateEnv.Close()
-	return trace.Wrap(UpdateEnvars(env, updateEnv, resource.Raw, manual, confirmed))
+	switch resource.Kind {
+	case storage.KindRuntimeEnvironment:
+		return trace.Wrap(UpdateEnviron(env, updateEnv, resource.Raw, manual, confirmed))
+	case storage.KindClusterConfiguration:
+		return trace.Wrap(UpdateConfig(env, updateEnv, resource.Raw, manual, confirmed))
+	}
+	// unreachable
+	return trace.BadParameter("unkown resource kind %q", resource.Kind)
 }
 
 // RemoveResource deletes resource by name
