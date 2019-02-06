@@ -65,6 +65,8 @@ const (
 	KindEndpoints = "endpoints"
 	// KindRuntimeEnvironment defines the resource that manages cluster environment variables
 	KindRuntimeEnvironment = "runtimeenvironment"
+	// KindClusterConfiguration defines the resource that manages cluster configuration
+	KindClusterConfiguration = "ClusterConfiguration"
 )
 
 // CanonicalKind translates the specified kind to canonical form.

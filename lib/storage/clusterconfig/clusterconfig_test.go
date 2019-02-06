@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Gravitational, Inc.
+Copyright 2019 Gravitational, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,28 +14,33 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package storage
+package clusterconfig
 
 import (
+	"testing"
+
 	"github.com/gravitational/gravity/lib/compare"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/gravity/lib/storage"
 
 	teleservices "github.com/gravitational/teleport/lib/services"
 	"github.com/gravitational/trace"
 	. "gopkg.in/check.v1"
 )
 
-type EnvS struct{}
+func Test(t *testing.T) { TestingT(t) }
 
-var _ = Suite(&EnvS{})
+type S struct{}
 
-func (*EnvS) TestParsesEnvironment(c *C) {
+var _ = Suite(&S{})
+
+func (*S) TestParsesClusterConfiguration(c *C) {
 	testCases := []struct {
-		in      string
-		env     *EnvironmentV1
-		error   error
-		comment string
+		in       string
+		resource *Resource
+		error    error
+		comment  string
 	}{
 		{
 			in:      `{}`,
@@ -43,79 +48,73 @@ func (*EnvS) TestParsesEnvironment(c *C) {
 			comment: "chokes on empty json",
 		},
 		{
-			in:      `{"kind": "runtimeenvironment"}`,
+			in:      `{"kind": "ClusterConfiguration"}`,
 			error:   trace.BadParameter("failed to validate: name: name is required"),
 			comment: "invalid with missing required fields",
 		},
 		{
-			in: `{"kind": "runtimeenvironment", "metadata": {"name": "foo"}, "version": "v1", "spec": {"data": {"foo": "bar"}}}`,
-			env: &EnvironmentV1{
-				Kind:    KindRuntimeEnvironment,
+			in: `kind: ClusterConfiguration
+version: v1
+metadata:
+  name: foo
+spec: {}`,
+			resource: &Resource{
+				Kind:    storage.KindClusterConfiguration,
 				Version: "v1",
 				Metadata: teleservices.Metadata{
-					Name:      constants.ClusterEnvironmentMap,
+					Name:      constants.ClusterConfigurationMap,
 					Namespace: defaults.KubeSystemNamespace,
 				},
-				Spec: EnvironmentSpec{
-					KeyValues: map[string]string{
-						"foo": "bar",
-					},
-				},
+				Spec: Spec{},
 			},
 			comment: "overrides metadata.name and metadata.namespace",
-		},
-		{
-			in: `{"kind": "runtimeenvironment", "metadata": {"name": "foo"}, "version": "v1", "spec": {"data": null}}`,
-			env: &EnvironmentV1{
-				Kind:    KindRuntimeEnvironment,
-				Version: "v1",
-				Metadata: teleservices.Metadata{
-					Name:      constants.ClusterEnvironmentMap,
-					Namespace: defaults.KubeSystemNamespace,
-				},
-			},
-			comment: "missing (empty) spec is ok",
 		},
 		{
 			in: `kind: runtimeenvironment
 version: v1
 spec:
-  data:
-    foo: bar
-    HTTP_PROXY: "example.com:8081"
-`,
-			env: &EnvironmentV1{
-				Kind:    KindRuntimeEnvironment,
+  global:
+    cloudProvider: aws
+    cloudConfig: |
+      [Global]
+      username=user
+      password=pass`,
+			resource: &Resource{
+				Kind:    storage.KindClusterConfiguration,
 				Version: "v1",
 				Metadata: teleservices.Metadata{
-					Name:      constants.ClusterEnvironmentMap,
+					Name:      constants.ClusterConfigurationMap,
 					Namespace: defaults.KubeSystemNamespace,
 				},
-				Spec: EnvironmentSpec{
-					KeyValues: map[string]string{
-						"foo":        "bar",
-						"HTTP_PROXY": "example.com:8081",
+				Spec: Spec{
+					Global: Global{
+						CloudProvider: "aws",
+						CloudConfig: CloudConfig{
+							Config: `[Global]
+username=user
+password=pass`,
+						},
 					},
 				},
 			},
-			comment: "parses the correct spec",
+			comment: "correctly parses the spec",
 		},
 	}
 	for _, tc := range testCases {
 		comment := Commentf(tc.comment)
-		env, err := UnmarshalEnvironmentVariables([]byte(tc.in))
+		resource, err := Unmarshal([]byte(tc.in))
 		if tc.error != nil {
 			c.Assert(err, FitsTypeOf, tc.error, comment)
 			continue
 		}
 		c.Assert(err, IsNil, comment)
-		c.Assert(env, compare.DeepEquals, tc.env, comment)
+		c.Assert(resource, compare.DeepEquals, tc.resource, comment)
 
-		bytes, err := MarshalEnvironment(env)
+		bytes, err := Marshal(resource)
 		c.Assert(err, IsNil, comment)
 
-		env2, err := UnmarshalEnvironmentVariables([]byte(bytes))
+		resource2, err := Unmarshal(bytes)
 		c.Assert(err, IsNil, comment)
-		c.Assert(env2, compare.DeepEquals, env, comment)
+		c.Assert(resource2, compare.DeepEquals, resource, comment)
 	}
 }
