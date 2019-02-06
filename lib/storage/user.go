@@ -721,6 +721,10 @@ func (*userMarshaler) UnmarshalUser(bytes []byte) (teleservices.User, error) {
 
 // GenerateUser generates new user
 func (*userMarshaler) GenerateUser(in teleservices.User) (teleservices.User, error) {
+	var expiry time.Time
+	if user, ok := in.(*teleservices.UserV2); ok {
+		expiry = user.Spec.Expires
+	}
 	return &UserV2{
 		Kind:    teleservices.KindUser,
 		Version: teleservices.V2,
@@ -739,7 +743,7 @@ func (*userMarshaler) GenerateUser(in teleservices.User) (teleservices.User, err
 			SAMLIdentities:   in.GetSAMLIdentities(),
 			GithubIdentities: in.GetGithubIdentities(),
 			Roles:            in.GetRoles(),
-			Expires:          in.Expiry(),
+			Expires:          expiry,
 		},
 	}, nil
 }
