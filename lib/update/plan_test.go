@@ -68,7 +68,7 @@ func (s *PlanSuite) TestPlanWithRuntimeUpdate(c *check.C) {
 		servers = append(servers, runtimeServer{server, runtimeLoc})
 	}
 
-	builder := phaseBuilder{}
+	builder := phaseBuilder{servers: params.servers}
 	init := *builder.init(appLoc1, appLoc2)
 	checks := *builder.checks(appLoc1, appLoc2).Require(init)
 	preUpdate := *builder.preUpdate(appLoc2).Require(init)

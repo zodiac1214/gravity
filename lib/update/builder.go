@@ -175,7 +175,7 @@ func (r phaseBuilder) masters(leadMaster runtimeServer, otherMasters runtimeServ
 		Description: "Update master nodes",
 	})
 
-	node := r.node(leadMaster.Server, root, "Update system software on master node %q")
+	node := r.node(leadMaster.Server, &root, "Update system software on master node %q")
 	if len(otherMasters) != 0 {
 		node.AddSequential(phase{
 			ID:          "kubelet-permissions",
@@ -203,7 +203,7 @@ func (r phaseBuilder) masters(leadMaster runtimeServer, otherMasters runtimeServ
 	}
 
 	for _, server := range otherMasters {
-		node = r.node(server.Server, root, "Update system software on master node %q")
+		node = r.node(server.Server, &root, "Update system software on master node %q")
 		node.AddSequential(r.commonNode(server.Server, server.runtime, leadMaster.Server, supportsTaints,
 			waitsForEndpoints(true))...)
 		// election - enable election on the upgraded node
@@ -222,7 +222,7 @@ func (r phaseBuilder) nodes(leadMaster storage.Server, nodes []runtimeServer, su
 	})
 
 	for _, server := range nodes {
-		node := r.node(server.Server, root, "Update system software on node %q")
+		node := r.node(server.Server, &root, "Update system software on node %q")
 		node.AddSequential(r.commonNode(server.Server, server.runtime, leadMaster, supportsTaints,
 			waitsForEndpoints(true))...)
 		root.AddParallel(node)
@@ -230,7 +230,7 @@ func (r phaseBuilder) nodes(leadMaster storage.Server, nodes []runtimeServer, su
 	return &root
 }
 
-func (r phaseBuilder) node(server storage.Server, parent phase, format string) phase {
+func (r phaseBuilder) node(server storage.Server, parent parentPhase, format string) phase {
 	return phase{
 		ID:          parent.ChildLiteral(server.Hostname),
 		Description: fmt.Sprintf(format, server.Hostname),
@@ -306,7 +306,7 @@ func (r phaseBuilder) cleanup(nodes []storage.Server) *phase {
 	})
 
 	for _, server := range nodes {
-		node := r.node(server, root, "Clean up node %q")
+		node := r.node(server, &root, "Clean up node %q")
 		node.Executor = cleanupNode
 		node.Data = &storage.OperationPhaseData{
 			Server: &server,
@@ -316,21 +316,47 @@ func (r phaseBuilder) cleanup(nodes []storage.Server) *phase {
 	return &root
 }
 
-type phaseBuilder struct{}
+func (r phaseBuilder) syncPoint() phase {
+	phase := phase{
+		ID:          "sync",
+		Description: "Sync operation plan",
+	}
+	for _, server := range r.servers {
+		node := r.node(server, &phase, "Sync plan on node %q")
+		node.Executor = syncPoint
+		node.Data = &storage.OperationPhaseData{
+			Server: &server,
+		}
+		phase.AddParallel(node)
+	}
+	return phase
+}
+
+type phaseBuilder struct {
+	servers []storage.Server
+}
 
 // AddSequential will append sub-phases which depend one upon another
-func (p *phase) AddSequential(sub ...phase) {
-	for i := range sub {
-		if len(p.Phases) > 0 {
-			sub[i].Require(phase(p.Phases[len(p.Phases)-1]))
-		}
-		p.Phases = append(p.Phases, storage.OperationPhase(sub[i]))
+func (p *phase) AddSequential(subs ...phase) {
+	if len(p.Phases) == 0 {
+		p.Phases = append(p.Phases, phases(subs).asPhases()...)
+		return
 	}
+	prevPhase := phase(p.Phases[len(p.Phases)-1])
+	p.AddWithDependency(prevPhase, subs...)
 }
 
 // AddParallel will append sub-phases which depend on parent only
-func (p *phase) AddParallel(sub ...phase) {
-	p.Phases = append(p.Phases, phases(sub).asPhases()...)
+func (p *phase) AddParallel(subs ...phase) {
+	p.Phases = append(p.Phases, phases(subs).asPhases()...)
+}
+
+// AddWithDependency sets phase as explicit dependency on subs
+func (p *phase) AddWithDependency(dep phase, subs ...phase) {
+	for i := range subs {
+		subs[i].Require(dep)
+		p.Phases = append(p.Phases, storage.OperationPhase(subs[i]))
+	}
 }
 
 // Child adds the specified sub phase as a child of this phase and
@@ -365,13 +391,16 @@ func (p *phase) RequireLiteral(ids ...string) *phase {
 	return p
 }
 
-// Root makes the specified phase root
+// root makes the specified phase root
 func root(sub phase) phase {
 	sub.ID = path.Join("/", sub.ID)
 	return sub
 }
 
 type phase storage.OperationPhase
+type parentPhase interface {
+	ChildLiteral(sub string) string
+}
 
 func (r phases) asPhases() (result []storage.OperationPhase) {
 	result = make([]storage.OperationPhase, 0, len(r))

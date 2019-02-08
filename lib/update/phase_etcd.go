@@ -94,6 +94,7 @@ func (r phaseBuilder) etcdPlan(
 	}
 
 	root.AddSequential(backupEtcd)
+	root.AddSequential(r.syncPoint())
 
 	// Shutdown etcd
 	// Move data directory to backup location
@@ -112,7 +113,16 @@ func (r phaseBuilder) etcdPlan(
 		shutdownEtcd.AddParallel(p)
 	}
 
-	root.AddSequential(shutdownEtcd)
+	// Set explicit dependency on backup phase for shutdown.
+	//
+	// When an agent receives the command to shutdown, it might come after
+	// another node has already shutdown etcd, in which case, the new agent
+	// might not be able to synchronize the plan and see the change (as the
+	// cluster might be unstable).
+	// We need to see the backup step completion though as it has been defined
+	// as a dependency hence we insert a sync point to make sure the plan has
+	// been synchronized
+	root.AddWithDependency(backupEtcd, shutdownEtcd)
 
 	// Upgrade servers
 	// Replace configuration and data directories, for new version of etcd

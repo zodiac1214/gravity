@@ -72,6 +72,8 @@ const (
 	updateEtcdRestartGravity = "etcd_restart_gravity"
 	// cleanupNode is the phase to clean up a node after the upgrade
 	cleanupNode = "cleanup_node"
+	// syncPoint is a special phase that triggers the plan sync
+	syncPoint = "sync_point"
 )
 
 // fsmSpec returns the function that returns an appropriate phase executor

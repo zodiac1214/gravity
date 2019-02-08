@@ -259,7 +259,7 @@ func newOperationPlanFromParams(p newPlanParams) (*storage.OperationPlan, error)
 		GravityPackage: *gravityPackage,
 	}
 
-	builder := phaseBuilder{}
+	builder := phaseBuilder{servers: p.servers}
 	initPhase := *builder.init(p.installedApp.Package, p.updateApp.Package)
 	checksPhase := *builder.checks(p.installedApp.Package, p.updateApp.Package).Require(initPhase)
 	preUpdatePhase := *builder.preUpdate(p.updateApp.Package).Require(initPhase)
