@@ -34,6 +34,7 @@ import (
 	"github.com/gravitational/gravity/lib/schema"
 	helmutils "github.com/gravitational/gravity/lib/utils/helm"
 
+	"github.com/ghodss/yaml"
 	"github.com/gravitational/trace"
 )
 
@@ -382,6 +383,19 @@ func appRebuildIndex(env *localenv.LocalEnvironment) error {
 		return trace.Wrap(err)
 	}
 	env.PrintStep("Index rebuild finished")
+	return nil
+}
+
+func appIndex(env *localenv.LocalEnvironment) error {
+	indexFile, err := helm.GenerateIndexFile(env.Apps)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	bytes, err := yaml.Marshal(indexFile)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	env.Println(string(bytes))
 	return nil
 }
 

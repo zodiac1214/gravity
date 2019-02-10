@@ -114,6 +114,8 @@ type Application struct {
 	AppSearchCmd AppSearchCmd
 	// AppRebuildIndexCmd rebuilds Helm chart repository index.
 	AppRebuildIndexCmd AppRebuildIndexCmd
+	// AppIndexCmd generates Helm chart repository index file.
+	AppIndexCmd AppIndexCmd
 	// AppImportCmd imports an app into cluster
 	AppImportCmd AppImportCmd
 	// AppExportCmd exports specified app into registry
@@ -733,6 +735,11 @@ type AppSearchCmd struct {
 
 // AppRebuildIndexCmd rebuilds Helm chart repository index.
 type AppRebuildIndexCmd struct {
+	*kingpin.CmdClause
+}
+
+// AppIndexCmd generates Helm chart repository index file.
+type AppIndexCmd struct {
 	*kingpin.CmdClause
 }
 
